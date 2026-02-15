@@ -197,11 +197,11 @@ class CorVSNet(L.LightningModule):
         elif isinstance(mod, nn.MultiheadAttention):
             mod._reset_parameters()
 
-    def forward(self, sensor_input: torch.FloatTensor, traj_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
         if valid_mask is None:
-            valid_mask = torch.ones(sensor_input.shape[:2], dtype=torch.bool, device=sensor_input.device)
+            valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
 
-        hidden: torch.Tensor = self.bn(torch.cat((sensor_input, traj_input), dim=2).transpose(1, 2), valid_mask)
+        hidden: torch.Tensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
         valid_mask = valid_mask[:, -hidden.shape[2]:]
         hidden = self.xformer(hidden.permute(2, 0, 1), src_key_padding_mask=~valid_mask)
