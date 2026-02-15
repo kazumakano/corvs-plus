@@ -53,6 +53,16 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 
         return self.batch_norm(input, valid_mask, self.running_mean if not self.training or self.track_running_stats else None, self.running_var if not self.training or self.track_running_stats else None, self.weight, self.bias, bn_training, exponential_average_factor, self.eps)
 
+    def _check_input_dim(self, input: torch.Tensor) -> None:
+        if input.dim() != 3:
+            raise ValueError(f"expected 3D input (got {input.dim()}D input)")
+
+    def _check_mask(self, mask: torch.Tensor) -> None:
+        if mask.dim() != 2:
+            raise ValueError(f"expected 2D mask (got {mask.dim()}D mask)")
+        if mask.count_nonzero() == 0:
+            raise ValueError("expected non-zero mask")
+
     @staticmethod
     def batch_norm(input: torch.Tensor, valid_mask: torch.Tensor, running_mean: torch.Tensor | None, running_var: torch.Tensor | None, weight: Optional[torch.Tensor] = None, bias: Optional[torch.Tensor] = None, training: bool = False, momentum: float = 0.1, eps: float = 1e-5) -> torch.Tensor:
         """
@@ -82,16 +92,6 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             output = weight.unsqueeze(0).unsqueeze(2) * output + bias.unsqueeze(0).unsqueeze(2)
 
         return output
-
-    def _check_input_dim(self, input: torch.Tensor) -> None:
-        if input.dim() != 3:
-            raise ValueError(f"expected 3D input (got {input.dim()}D input)")
-
-    def _check_mask(self, mask: torch.Tensor) -> None:
-        if mask.dim() != 2:
-            raise ValueError(f"expected 2D mask (got {mask.dim()}D mask)")
-        if mask.count_nonzero() == 0:
-            raise ValueError("expected non-zero mask")
 
 class DualCNN(nn.Module):
     def __init__(self, ch: int, ks_s: int) -> None:
@@ -147,7 +147,7 @@ class CorVSNet(L.LightningModule):
             xformer_time_len += 1
         match hparams["xformer_pos_enc"]:
             case "learnable":
-                self.pos_embed = nn.Parameter(data=torch.randn(xformer_time_len, 1, hparams["xformer_d_model"], dtype=torch.float32))
+                self.pos_embed = nn.Parameter(data=torch.empty(xformer_time_len, 1, hparams["xformer_d_model"], dtype=torch.float32))
                 xformer_layer = nn.TransformerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case "sinusoidal":
                 self.register_buffer("pos_embed", create_sin_pos_embed(hparams["xformer_d_model"], xformer_time_len).unsqueeze(1))
@@ -168,44 +168,56 @@ class CorVSNet(L.LightningModule):
             nn.Linear(hparams["xformer_d_model"] // 4, 1)
         )
 
-        self.apply(self._init_params)
+        self.reset_parameters()
 
-    @classmethod
-    def _init_params(cls, mod: nn.Module) -> None:
-        if isinstance(mod, cls):
-            if mod.hparams["use_cls_token"]:
-                nn.init.xavier_uniform_(mod.cls_token)
-            if mod.hparams["xformer_pos_enc"] == "learnable":
-                nn.init.xavier_uniform_(mod.pos_embed)
+    def reset_parameters(self) -> None:
+        for m in self.modules():
+            if isinstance(m, CorVSNet):
+                if m.hparams["use_cls_token"]:
+                    nn.init.xavier_uniform_(m.cls_token)
+                if m.hparams["xformer_pos_enc"] == "learnable":
+                    nn.init.xavier_uniform_(m.pos_embed)
 
-        elif isinstance(mod, nn.BatchNorm1d):
-            mod.reset_parameters()
+            elif isinstance(m, nn.BatchNorm1d):
+                m.reset_parameters()
 
-        elif isinstance(mod, nn.Conv1d):
-            nn.init.kaiming_normal_(mod.weight)
-            if mod.bias is not None:
-                nn.init.zeros_(mod.bias)
+            elif isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
 
-        elif isinstance(mod, nn.LayerNorm):
-            mod.reset_parameters()
+            elif isinstance(m, nn.LayerNorm):
+                m.reset_parameters()
 
-        elif isinstance(mod, nn.Linear):
-            nn.init.xavier_uniform_(mod.weight)
-            if mod.bias is not None:
-                nn.init.zeros_(mod.bias)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
 
-        elif isinstance(mod, nn.MultiheadAttention):
-            mod._reset_parameters()
+            elif isinstance(m, nn.MultiheadAttention):
+                m._reset_parameters()
 
-    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
+
+        rel = None if self.training else self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
 
         hidden: torch.Tensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
         valid_mask = valid_mask[:, -hidden.shape[2]:]
         hidden = self.xformer(hidden.permute(2, 0, 1), src_key_padding_mask=~valid_mask)
         hidden = self.pool(hidden.permute(1, 2, 0), valid_mask)
-        output = self.mlp(hidden)
+        output = F.sigmoid(self.mlp(hidden))    # use log sigmoid instead during training
+
+        return output, rel
+
+    def rel_estim(self, spd: torch.Tensor, linacc: torch.Tensor, valid_mask: torch.Tensor) -> torch.Tensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
+        cnt = valid_mask.count_nonzero(dim=1)
+        spd_mean = (valid_mask * spd).sum(dim=1) / cnt
+        spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
+        linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        output = 1 / (1 + torch.min(self.bn.running_var[0] / spd_var, self.bn.running_var[2] / linacc_var))
 
         return output

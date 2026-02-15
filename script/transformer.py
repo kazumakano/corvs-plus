@@ -7,7 +7,7 @@ from torch.nn.modules import activation as act
 from torchtune import modules
 
 
-def create_sin_pos_embed(dim: int, time_len: int, max_period: float = 10000) -> torch.Tensor:
+def create_sin_pos_embed(dim: int, time_len: int, max_period: float = 10000) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
