@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 
-class MaskedAttnPool1d(nn.Module):
+class MaskedGlobalAttnPool1d(nn.Module):
     def __init__(self, d_model: int, nhead: int) -> None:
         super().__init__()
         self.d_head, self.nhead = d_model // nhead, nhead

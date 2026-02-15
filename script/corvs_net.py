@@ -3,7 +3,7 @@ import torch
 from lightning import pytorch as L
 from torch import nn
 from torch.nn import functional as F
-from .pooling import MaskedAttnPool1d
+from .pooling import MaskedGlobalAttnPool1d
 from .transformer import RoFormerEncoderLayer, create_sin_pos_embed
 
 
@@ -159,7 +159,7 @@ class CorVSNet(L.LightningModule):
         self.xformer = nn.TransformerEncoder(xformer_layer, hparams["xformer_n_layers"], norm=nn.LayerNorm(hparams["xformer_d_model"]))
 
         if hparams["time_agg"] == "attn_pool":
-            self.pool = MaskedAttnPool1d(hparams["xformer_d_model"], 1)
+            self.pool = MaskedGlobalAttnPool1d(hparams["xformer_d_model"], 1)
 
         self.mlp = nn.Sequential(
             nn.Linear(hparams["xformer_d_model"], hparams["xformer_d_model"] // 4),
