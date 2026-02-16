@@ -1,7 +1,7 @@
 import math
 from typing import Any, Callable, Optional
 import torch
-from torch import nn
+from torch import jit, nn
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
 from torchtune import modules
@@ -40,9 +40,13 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
     def forward(self, x: torch.FloatTensor, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
         """
         Modified from `RotaryPositionalEmbeddings.forward()`.
+        This method rebuild cache when input is longer than cache.
         """
 
         seq_len = x.size(1)
+
+        if seq_len > len(self.cache):
+            self.build_rope_cache(seq_len)
 
         rope_cache = self.cache[:seq_len] if input_pos is None else self.cache[input_pos]
 
@@ -54,6 +58,21 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         x_out = x_out.flatten(start_dim=3)
         return x_out.type_as(x)
+
+    def build_rope_cache(self, max_seq_len: int = 4096) -> None:
+        """
+        Modified from `RotaryPositionalEmbeddings.build_rope_cache()`
+        """
+
+        seq_idx = torch.arange(max_seq_len, dtype=self.theta.dtype, device=self.theta.device)
+
+        idx_theta = torch.einsum("i, j -> ij", seq_idx, self.theta).float()
+
+        cache = torch.stack([torch.cos(idx_theta), torch.sin(idx_theta)], dim=-1)
+        if "cache" in [n for n, _ in self.named_buffers()] or jit.is_scripting():
+            self.cache = cache
+        else:
+            self.register_buffer("cache", cache, persistent=False)
 
     def multi_head_attention_forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, embed_dim_to_check: int, num_heads: int, in_proj_weight: torch.Tensor | None, in_proj_bias: torch.Tensor | None, bias_k: torch.Tensor | None, bias_v: torch.Tensor | None, add_zero_attn: bool, dropout_p: float, out_proj_weight: torch.Tensor, out_proj_bias: torch.Tensor | None, training: bool = True, key_padding_mask: Optional[torch.Tensor] = None, need_weights: bool = True, attn_mask: Optional[torch.Tensor] = None, use_separate_proj_weight: bool = False, q_proj_weight: Optional[torch.Tensor] = None, k_proj_weight: Optional[torch.Tensor] = None, v_proj_weight: Optional[torch.Tensor] = None, static_k: Optional[torch.Tensor] = None, static_v: Optional[torch.Tensor] = None, average_attn_weights: bool = True, is_causal: bool = False) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
