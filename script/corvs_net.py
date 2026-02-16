@@ -4,7 +4,7 @@ from lightning import pytorch as L
 from torch import nn
 from torch.nn import functional as F
 from .pooling import MaskedGlobalAttnPool1d
-from .transformer import RoFormerEncoderLayer, create_sin_pos_embed
+from .transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
 
 class MaskedBatchNorm1d(nn.BatchNorm1d):
@@ -132,7 +132,7 @@ class CorVSNet(L.LightningModule):
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
         if hparams["xformer_d_model"] % 2 != 0:
             raise ValueError("dimension of Transformer encoder must be even")
-        if hparams["time_agg"] == "cls_token" and not hparams["use_cls_token"]:
+        if hparams["time_agg"] == "cls_tok" and not hparams["use_cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
         super().__init__()
@@ -142,15 +142,15 @@ class CorVSNet(L.LightningModule):
         self.cnn = DualCNN(hparams["xformer_d_model"] // 2, hparams["cnn_ks_s"])
 
         xformer_time_len = hparams["win_len"] - 5 * hparams["cnn_ks_s"] + 5
-        if hparams["use_cls_token"]:
-            self.cls_token = nn.Parameter(data=torch.empty(1, 1, hparams["xformer_d_model"], dtype=torch.float32))
+        if hparams["use_cls_tok"]:
+            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
         match hparams["xformer_pos_enc"]:
             case "learnable":
-                self.pos_embed = nn.Parameter(data=torch.empty(xformer_time_len, 1, hparams["xformer_d_model"], dtype=torch.float32))
+                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, hparams["xformer_d_model"], dtype=torch.float32))
                 xformer_layer = nn.TransformerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case "sinusoidal":
-                self.register_buffer("pos_embed", create_sin_pos_embed(hparams["xformer_d_model"], xformer_time_len).unsqueeze(1))
+                self.register_buffer("pos_emb", create_sin_pos_emb(hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
                 xformer_layer = nn.TransformerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case "rope":
                 xformer_layer = RoFormerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], xformer_time_len, dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
@@ -173,10 +173,10 @@ class CorVSNet(L.LightningModule):
     def reset_parameters(self) -> None:
         for m in self.modules():
             if isinstance(m, CorVSNet):
-                if m.hparams["use_cls_token"]:
-                    nn.init.xavier_uniform_(m.cls_token)
+                if m.hparams["use_cls_tok"]:
+                    nn.init.xavier_uniform_(m.cls_tok)
                 if m.hparams["xformer_pos_enc"] == "learnable":
-                    nn.init.xavier_uniform_(m.pos_embed)
+                    nn.init.xavier_uniform_(m.pos_emb)
 
             elif isinstance(m, nn.BatchNorm1d):
                 m.reset_parameters()

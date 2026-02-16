@@ -7,7 +7,7 @@ from torch.nn.modules import activation as act
 from torchtune import modules
 
 
-def create_sin_pos_embed(dim: int, time_len: int, max_period: float = 10000) -> torch.FloatTensor:
+def create_sin_pos_emb(dim: int, time_len: int, max_period: float = 10000) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
@@ -22,7 +22,7 @@ def create_sin_pos_embed(dim: int, time_len: int, max_period: float = 10000) -> 
 
     Returns
     -------
-    embed : Tensor[float32]
+    emb : Tensor[float32]
         Position embedding.
         Shape is (time_len, dim).
     """
@@ -30,11 +30,11 @@ def create_sin_pos_embed(dim: int, time_len: int, max_period: float = 10000) -> 
     freq = torch.exp(-math.log(max_period) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim)    # (dim / 2, )
     pos = torch.arange(time_len, dtype=torch.float64).unsqueeze(1)    # (time_len, 1)
 
-    embed = torch.empty(time_len, dim, dtype=torch.float32)
-    embed[:, ::2] = torch.sin(freq * pos)
-    embed[:, 1::2] = torch.cos(freq[:dim // 2] * pos)
+    emb = torch.empty(time_len, dim, dtype=torch.float32)
+    emb[:, ::2] = torch.sin(freq * pos)
+    emb[:, 1::2] = torch.cos(freq[:dim // 2] * pos)
 
-    return embed
+    return emb
 
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
     def forward(self, x: torch.FloatTensor, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
