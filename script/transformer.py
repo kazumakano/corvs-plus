@@ -390,6 +390,10 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
         else:
             return attn_output, attn_output_weights
 
+    def _reset_parameters(self) -> None:
+        super()._reset_parameters()
+        self.rope.reset_parameters()
+
 class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
     def __init__(self, d_model: int, nhead: int, time_len: int, dim_feedforward: int = 2048, dropout: float = 0.1, activation: str | Callable[[torch.Tensor], torch.Tensor] = F.relu, layer_norm_eps: float = 0.00001, batch_first: bool = False, norm_first: bool = False, bias: bool = True, device: Any = None, dtype: Any = None) -> None:
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
