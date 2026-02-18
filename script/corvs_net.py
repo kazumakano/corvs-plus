@@ -1,8 +1,9 @@
 from typing import Any, Optional
 import torch
-from lightning import pytorch as L
+from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
+from .base import BaseModule, BasePredictor
 from .pooling import MaskedGlobalAttnPool1d
 from .transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
@@ -173,8 +174,8 @@ class SeparableDualCNN(nn.Module):
 
         return output
 
-class CorVSNet(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any]) -> None:
+class CorVSNet(BaseModule):
+    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
         if hparams["min_input_len"] < 5 * hparams["cnn_ks_s"] - 4:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
         if hparams["xformer_d_model"] % 2 != 0:
@@ -182,8 +183,7 @@ class CorVSNet(L.LightningModule):
         if hparams["time_agg"] == "cls_tok" and not hparams["use_cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
-        super().__init__()
-        self.save_hyperparameters(hparams)
+        super().__init__(hparams)
 
         self.bn = MaskedBatchNorm1d(9, affine=False)
         if hparams["sep_cnn"]:
@@ -247,20 +247,24 @@ class CorVSNet(L.LightningModule):
             elif isinstance(m, nn.MultiheadAttention):
                 m._reset_parameters()
 
-    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
-
-        rel = None if self.training else self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
 
         hidden: torch.Tensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
         valid_mask = valid_mask[:, -hidden.shape[2]:]
         hidden = self.xformer(hidden.permute(2, 0, 1), src_key_padding_mask=~valid_mask)
         hidden = self.pool(hidden.permute(1, 2, 0), valid_mask)
-        output = F.sigmoid(self.mlp(hidden))    # use log sigmoid instead during training
+        output = self.mlp(hidden)
 
-        return output, rel
+        return output
+
+class CorVSNetPredictor(CorVSNet, BasePredictor):
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
+        prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
+        rel = self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
+        return prob, rel
 
     def rel_estim(self, spd: torch.Tensor, linacc: torch.Tensor, valid_mask: torch.Tensor) -> torch.Tensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
         cnt = valid_mask.count_nonzero(dim=1)
