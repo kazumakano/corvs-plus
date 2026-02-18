@@ -94,19 +94,19 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
         return output
 
 class DualCNN(nn.Module):
-    def __init__(self, ch: int, ks_s: int) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int) -> None:
         super().__init__()
 
-        self.conv_1 = nn.Conv1d(9, ch, ks_s, bias=False)
-        self.bn_1 = MaskedBatchNorm1d(ch)
-        self.conv_2_s = nn.Conv1d(ch, ch, ks_s, bias=False)
-        self.bn_2_s = MaskedBatchNorm1d(ch)
-        self.conv_3_s = nn.Conv1d(ch, ch, ks_s, bias=False)
-        self.bn_3_s = MaskedBatchNorm1d(ch)
-        self.conv_2_l = nn.Conv1d(ch, ch, 2 * ks_s - 1, bias=False)
-        self.bn_2_l = MaskedBatchNorm1d(ch)
-        self.conv_3_l = nn.Conv1d(ch, ch, 2 * ks_s - 1, bias=False)
-        self.bn_3_l = MaskedBatchNorm1d(ch)
+        self.conv_1 = nn.Conv1d(in_ch, out_ch, ks_s, bias=False)
+        self.bn_1 = MaskedBatchNorm1d(out_ch)
+        self.conv_2_s = nn.Conv1d(out_ch, out_ch, ks_s, bias=False)
+        self.bn_2_s = MaskedBatchNorm1d(out_ch)
+        self.conv_3_s = nn.Conv1d(out_ch, out_ch, ks_s, bias=False)
+        self.bn_3_s = MaskedBatchNorm1d(out_ch)
+        self.conv_2_l = nn.Conv1d(out_ch, out_ch, 2 * ks_s - 1, bias=False)
+        self.bn_2_l = MaskedBatchNorm1d(out_ch)
+        self.conv_3_l = nn.Conv1d(out_ch, out_ch, 2 * ks_s - 1, bias=False)
+        self.bn_3_l = MaskedBatchNorm1d(out_ch)
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
         hidden: torch.Tensor = self.conv_1(input)
@@ -118,6 +118,53 @@ class DualCNN(nn.Module):
         hidden_l: torch.Tensor = self.conv_2_l(hidden)
         hidden_l = F.silu(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
         hidden_l = self.conv_3_l(hidden_l)
+        hidden_l = F.silu(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
+
+        head_len = (hidden_s.shape[2] - hidden_l.shape[2]) // 2
+        tail_len = hidden_s.shape[2] - hidden_l.shape[2] - head_len
+        output = torch.cat((hidden_s[:, :, head_len:-tail_len], hidden_l), dim=1)
+
+        return output
+
+class SeparableDualCNN(nn.Module):
+    def __init__(self, in_ch: int, out_ch: int, fn: int, ks_s: int) -> None:
+        super().__init__()
+
+        self.conv_1_d = nn.Conv1d(1, fn, ks_s, bias=False)
+        self.conv_1_p = nn.Conv1d(in_ch * fn, out_ch, 1, bias=False)
+        self.bn_1 = MaskedBatchNorm1d(out_ch)
+        self.conv_2_s_d = nn.Conv1d(1, fn, ks_s, bias=False)
+        self.conv_2_s_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
+        self.bn_2_s = MaskedBatchNorm1d(out_ch)
+        self.conv_3_s_d = nn.Conv1d(1, fn, ks_s, bias=False)
+        self.conv_3_s_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
+        self.bn_3_s = MaskedBatchNorm1d(out_ch)
+        self.conv_2_l_d = nn.Conv1d(1, fn, 2 * ks_s - 1, bias=False)
+        self.conv_2_l_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
+        self.bn_2_l = MaskedBatchNorm1d(out_ch)
+        self.conv_3_l_d = nn.Conv1d(1, fn, 2 * ks_s - 1, bias=False)
+        self.conv_3_l_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
+        self.bn_3_l = MaskedBatchNorm1d(out_ch)
+
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
+        batch_size = len(input)
+
+        hidden: torch.Tensor = self.conv_1_d(input.view(batch_size * input.shape[1], 1, input.shape[2]))    # (batch, channel, time) -> (batch * channel, 1, time) -> (batch * channel, fn, time)
+        hidden = self.conv_1_p(hidden.view(batch_size, -1, hidden.shape[2]))    # (batch * channel, fn, time) -> (batch, channel * fn, time) -> (batch, channel, time)
+        hidden = F.silu(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
+
+        hidden_s: torch.Tensor = self.conv_2_s_d(hidden.view(batch_size * hidden.shape[1], 1, hidden.shape[2]))
+        hidden_s = self.conv_2_s_p(hidden_s.view(batch_size, -1, hidden_s.shape[2]))
+        hidden_s = F.silu(self.bn_2_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
+        hidden_s = self.conv_3_s_d(hidden_s.view(batch_size * hidden_s.shape[1], 1, hidden_s.shape[2]))
+        hidden_s = self.conv_3_s_p(hidden_s.view(batch_size, -1, hidden_s.shape[2]))
+        hidden_s = F.silu(self.bn_3_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
+
+        hidden_l: torch.Tensor = self.conv_2_l_d(hidden.view(batch_size * hidden.shape[1], 1, hidden.shape[2]))
+        hidden_l = self.conv_2_l_p(hidden_l.view(batch_size, -1, hidden_l.shape[2]))
+        hidden_l = F.silu(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
+        hidden_l = self.conv_3_l_d(hidden_l.view(batch_size * hidden_l.shape[1], 1, hidden_l.shape[2]))
+        hidden_l = self.conv_3_l_p(hidden_l.view(batch_size, -1, hidden_l.shape[2]))
         hidden_l = F.silu(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
 
         head_len = (hidden_s.shape[2] - hidden_l.shape[2]) // 2
@@ -139,7 +186,10 @@ class CorVSNet(L.LightningModule):
         self.save_hyperparameters(hparams)
 
         self.bn = MaskedBatchNorm1d(9, affine=False)
-        self.cnn = DualCNN(hparams["xformer_d_model"] // 2, hparams["cnn_ks_s"])
+        if hparams["sep_cnn"]:
+            self.cnn = SeparableDualCNN(9, hparams["xformer_d_model"] // 2, hparams["cnn_fn"], hparams["cnn_ks_s"])
+        else:
+            self.cnn = DualCNN(9, hparams["xformer_d_model"] // 2, hparams["cnn_ks_s"])
 
         xformer_time_len = hparams["win_len"] - 5 * hparams["cnn_ks_s"] + 5
         if hparams["use_cls_tok"]:
