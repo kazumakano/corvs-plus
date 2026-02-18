@@ -1,5 +1,6 @@
 from os import PathLike
 from typing import Any, Optional, Self
+import torch
 from lightning import pytorch as L
 from omegaconf import DictConfig
 from safetensors import torch as safetensors
@@ -37,8 +38,8 @@ class BaseModule(L.LightningModule):
 
 class BasePredictor(L.LightningModule):
     @classmethod
-    def load_from_safetensors(cls, file: str | PathLike, hparams: dict[str, Any] | DictConfig, device: int | str = "cpu", **kwargs: Any) -> Self:
+    def load_from_safetensors(cls, file: str | PathLike, hparams: dict[str, Any] | DictConfig, device: int | str | torch.device = "cpu", **kwargs: Any) -> Self:
         self = cls(hparams, **kwargs)
-        safetensors.load_model(self, file, device=device)
-        self = self.eval()
+        safetensors.load_model(self, file)    # device argument does not work with lightning
+        self = self.to(device=device).eval()
         return self

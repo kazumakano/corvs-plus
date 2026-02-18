@@ -206,7 +206,7 @@ class CorVSNet(BaseModule):
                 xformer_layer = RoFormerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], xformer_time_len, dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case _:
                 raise ValueError(f"unknown positional encoding {hparams['xformer_pos_enc']} was specified")
-        self.xformer = nn.TransformerEncoder(xformer_layer, hparams["xformer_n_layers"], norm=nn.LayerNorm(hparams["xformer_d_model"]))
+        self.xformer = nn.TransformerEncoder(xformer_layer, hparams["xformer_n_layers"], norm=nn.LayerNorm(hparams["xformer_d_model"]), enable_nested_tensor=False)
 
         if hparams["time_agg"] == "attn_pool":
             self.pool = MaskedGlobalAttnPool1d(hparams["xformer_d_model"], 1)
