@@ -49,7 +49,7 @@ class BaseModule(L.LightningModule):
         if self.hparams["sch"] == "free":
             self.optimizers().optimizer.train()
 
-    def on_validation_epoch_start(self):
+    def on_validation_epoch_start(self) -> None:
         if self.hparams["sch"] == "free":
             self.optimizers().optimizer.eval()
 
@@ -57,7 +57,7 @@ class BaseModule(L.LightningModule):
         if self.hparams["sch"] == "free":
             self.optimizers().optimizer.eval()
 
-    def on_predict_start(self):
+    def on_predict_start(self) -> None:
         if self.hparams["sch"] == "free":
             self.optimizers().optimizer.eval()
 
