@@ -19,12 +19,12 @@ class BaseModule(L.LightningModule):
             case "adam":
                 opt = optim.Adam(self.parameters(), lr=self.hparams["lr"])
             case "adamw":
-                if self.hparams["sch"] == "free":
+                if self.hparams["sched"] == "free":
                     opt = optim.ScheduleFreeAdamW(self.parameters(), lr=self.hparams["lr"])
                 else:
                     opt = optim.AdamW(self.parameters(), lr=self.hparams["lr"])
             case "sgd":
-                if self.hparams["sch"] == "free":
+                if self.hparams["sched"] == "free":
                     opt = optim.ScheduleFreeSGD(self.parameters(), lr=self.hparams["lr"])
                 else:
                     opt = optim.SGD(self.parameters(), lr=self.hparams["lr"])
@@ -33,7 +33,9 @@ class BaseModule(L.LightningModule):
             case _:
                 raise ValueError(f"unknown optimizer {self.hparams['opt']} was specified")
 
-        match self.hparams["sch"]:
+        match self.hparams["sched"]:
+            case "free" | None:
+                return opt
             case "warm_cos":
                 return {
                     "optimizer": opt,
@@ -42,23 +44,23 @@ class BaseModule(L.LightningModule):
                         "interval": "step"
                     }
                 }
-            case "free" | None:
-                return opt
+            case _:
+                raise ValueError(f"unknown scheduler {self.hparams['sched']} was specified")
 
     def on_train_epoch_start(self) -> None:
-        if self.hparams["sch"] == "free":
+        if self.hparams["sched"] == "free":
             self.optimizers().optimizer.train()
 
     def on_validation_epoch_start(self) -> None:
-        if self.hparams["sch"] == "free":
+        if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
     def on_test_start(self) -> None:
-        if self.hparams["sch"] == "free":
+        if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
     def on_predict_start(self) -> None:
-        if self.hparams["sch"] == "free":
+        if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
     def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
