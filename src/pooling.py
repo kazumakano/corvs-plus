@@ -1,3 +1,4 @@
+import einops
 import torch
 from torch import nn
 
@@ -13,10 +14,11 @@ class MaskedGlobalAttnPool1d(nn.Module):
         self.proj = nn.Linear(d_model, nhead)
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
-        score: torch.FloatTensor = self.proj(input.transpose(-2, -1))    # (*, d_model, time) -> (*, time, nhead)
-        score = score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf)
-        output = (score.softmax(-2).unsqueeze(-1) * input.transpose(-2, -1).view(*input.shape[:-2], input.shape[-1], self.nhead, self.d_head)).sum(dim=-3)    # (*, time, nhead), (*, d_model, time) -> (*, nhead, d_head)
-        output = output.flatten(start_dim=-2)
+        score: torch.FloatTensor = self.proj(input.transpose(-2, -1))
+        weight = score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf).softmax(-2)
+        weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
+        input = einops.rearrange(input, "... (nh, dh) t -> ... t nh dh", nh=self.nhead, dh=self.d_head)
+        output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
         return output
 
 def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:
