@@ -1,0 +1,27 @@
+# data
+min_input_len: 21
+win_len: 600
+win_stride: 10
+
+# architecture
+arch: corvsnet
+sep_cnn: false
+cnn_fn: null
+cnn_ks_s: 5
+use_cls_tok: false
+xformer_pos_enc: rope
+xformer_n_layers: 4
+xformer_d_model: 48
+xformer_nhead: 4
+xformer_d_ff: 128
+time_agg: attn_pool
+
+# training
+loss: bce
+opt: adamw
+sched: warm_cos
+lr: 0.0001
+batch_size: 128
+max_step: 100000
+val_step: 1000
+warm_step: 5000
