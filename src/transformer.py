@@ -7,7 +7,7 @@ from torch.nn.modules import activation as act
 from torchtune import modules
 
 
-def create_sin_pos_emb(dim: int, time_len: int, max_period: float = 10000) -> torch.FloatTensor:
+def create_sin_pos_emb(dim: int, time_len: int, period_scale: float = 10000) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
@@ -17,22 +17,23 @@ def create_sin_pos_emb(dim: int, time_len: int, max_period: float = 10000) -> to
         Dimension.
     time_len : int
         Time length.
-    max_period : float
-        Maximum sinusoidal period.
+    period_scale : float
+        Scale of sinusoidal period.
+        Maximum sinusoidal period is `2π * period_scale`.
 
     Returns
     -------
-    emb : Tensor[float32]
+    emb : FloatTensor
         Position embedding.
         Shape is (time_len, dim).
     """
 
-    freq = torch.exp(-math.log(max_period) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim)    # (dim / 2, )
+    freq = (-math.log(period_scale) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim).exp()    # (dim / 2, )
     pos = torch.arange(time_len, dtype=torch.float64).unsqueeze(1)    # (time_len, 1)
 
     emb = torch.empty(time_len, dim, dtype=torch.float32)
     emb[:, ::2] = torch.sin(freq * pos)
-    emb[:, 1::2] = torch.cos(freq[:dim // 2] * pos)
+    emb[:, 1::2] = torch.cos(freq * pos)
 
     return emb
 
