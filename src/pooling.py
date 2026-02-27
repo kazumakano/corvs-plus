@@ -17,7 +17,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
         score: torch.FloatTensor = self.proj(input.transpose(-2, -1))
         weight = score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf).softmax(-2)
         weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
-        input = einops.rearrange(input, "... (nh, dh) t -> ... t nh dh", nh=self.nhead, dh=self.d_head)
+        input = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead, dh=self.d_head)
         output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
         return output
 
