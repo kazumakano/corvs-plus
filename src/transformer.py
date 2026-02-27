@@ -439,7 +439,7 @@ class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
             activation: str | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
-            layer_norm_eps: float = 0.00001,
+            layer_norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
