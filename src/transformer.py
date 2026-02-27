@@ -7,7 +7,7 @@ from torch.nn.modules import activation as act
 from torchtune import modules
 
 
-def create_sin_pos_emb(dim: int, time_len: int, period_scale: float = 10000) -> torch.FloatTensor:
+def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
@@ -17,9 +17,9 @@ def create_sin_pos_emb(dim: int, time_len: int, period_scale: float = 10000) -> 
         Dimension.
     time_len : int
         Time length.
-    period_scale : float
-        Scale of sinusoidal period.
-        Maximum sinusoidal period is `2π * period_scale`.
+    base : float
+        Base frequency.
+        Maximum period is `2π * base`.
 
     Returns
     -------
@@ -28,7 +28,7 @@ def create_sin_pos_emb(dim: int, time_len: int, period_scale: float = 10000) -> 
         Shape is (time_len, dim).
     """
 
-    freq = (-math.log(period_scale) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim).exp()    # (dim / 2, )
+    freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim).exp()    # (dim / 2, )
     pos = torch.arange(time_len, dtype=torch.float64).unsqueeze(1)    # (time_len, 1)
 
     emb = torch.empty(time_len, dim, dtype=torch.float32)
@@ -276,10 +276,11 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             vdim: Optional[int] = None,
             batch_first: bool = False,
             device: Any = None,
-            dtype: Any = None
+            dtype: Any = None,
+            rope_base: int = 10000
         ) -> None:
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
-        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, max_seq_len=time_len)
+        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, max_seq_len=time_len, base=rope_base)
 
     def forward(self, query: torch.FloatTensor,
             key: torch.FloatTensor,
@@ -444,7 +445,8 @@ class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
             norm_first: bool = False,
             bias: bool = True,
             device: Any = None,
-            dtype: Any = None
+            dtype: Any = None,
+            rope_base: int = 10000
         ) -> None:
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
-        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, batch_first=batch_first, device=device, dtype=dtype, rope_base=rope_base)
