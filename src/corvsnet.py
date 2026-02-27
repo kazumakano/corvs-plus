@@ -3,219 +3,54 @@ import torch
 from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
-from .base import BaseModule, BasePredictor
-from .pooling import MaskedGlobalAttnPool1d
-from .transformer import RoFormerEncoderLayer, create_sin_pos_emb
+from torch.nn import init
+from src.base import BaseModule, BasePredictor
+from src.cnn import DualCNN, SeparableDualCNN
+from src.normalization import MaskedBatchNorm1d
+from src.pooling import MaskedGlobalAttnPool1d
+from src.transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
-
-class MaskedBatchNorm1d(nn.BatchNorm1d):
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
-        """
-        Modified from `BatchNorm1d.forward()`.
-        This method supports masking.
-
-        Parameters
-        ----------
-        input : Tensor[float32]
-            Input.
-            Shape is (batch, channel, time).
-        valid_mask : Tensor[bool]
-            Mask of valid times.
-            It takes 'True' for valid and 'False' for invalid.
-            Shape is (batch, time).
-
-        Returns
-        -------
-        output : Tensor[float32]
-            Normalized output.
-            Shape is (batch, channel, time).
-        """
-
-        self._check_input_dim(input)
-        self._check_mask(valid_mask)
-
-        if self.momentum is None:
-            exponential_average_factor = 0.0
-        else:
-            exponential_average_factor = self.momentum
-
-        if self.training and self.track_running_stats:
-            if self.num_batches_tracked is not None:
-                self.num_batches_tracked.add_(1)
-                if self.momentum is None:
-                    exponential_average_factor = 1.0 / float(self.num_batches_tracked)
-                else:
-                    exponential_average_factor = self.momentum
-
-        if self.training:
-            bn_training = True
-        else:
-            bn_training = (self.running_mean is None) and (self.running_var is None)
-
-        return self.batch_norm(input, valid_mask, self.running_mean if not self.training or self.track_running_stats else None, self.running_var if not self.training or self.track_running_stats else None, self.weight, self.bias, bn_training, exponential_average_factor, self.eps)
-
-    def _check_input_dim(self, input: torch.Tensor) -> None:
-        if input.dim() != 3:
-            raise ValueError(f"expected 3D input (got {input.dim()}D input)")
-
-    def _check_mask(self, mask: torch.Tensor) -> None:
-        if mask.dim() != 2:
-            raise ValueError(f"expected 2D mask (got {mask.dim()}D mask)")
-        if mask.count_nonzero() == 0:
-            raise ValueError("expected non-zero mask")
-
-    @staticmethod
-    def batch_norm(input: torch.Tensor, valid_mask: torch.Tensor, running_mean: torch.Tensor | None, running_var: torch.Tensor | None, weight: Optional[torch.Tensor] = None, bias: Optional[torch.Tensor] = None, training: bool = False, momentum: float = 0.1, eps: float = 1e-5) -> torch.Tensor:
-        """
-        Modified from `batch_norm()`.
-        """
-
-        if training:
-            F._verify_batch_size(input.size())
-
-        if eps <= 0.0:
-            raise ValueError(f"batch_norm eps must be positive, but got {eps}")
-
-        if training:
-            cnt = valid_mask.count_nonzero()
-            mean = (valid_mask.unsqueeze(1) * input).sum(dim=(0, 2)) / cnt    # (channel, )    
-            var = (valid_mask.unsqueeze(1) * (input - mean.unsqueeze(0).unsqueeze(2)) ** 2).sum(dim=(0, 2)) / cnt    # (channel, )
-            if running_mean is not None and running_var is not None:
-                running_mean.copy_((1 - momentum) * running_mean + momentum * mean)
-                running_var.copy_((1 - momentum) * running_var + momentum * cnt / (cnt - 1) * var)
-        else:
-            mean = running_mean
-            var = running_var
-
-        assert mean is not None and var is not None
-        output = (input - mean.unsqueeze(0).unsqueeze(2)) / (var + eps).sqrt().unsqueeze(0).unsqueeze(2)
-        if weight is not None and bias is not None:
-            output = weight.unsqueeze(0).unsqueeze(2) * output + bias.unsqueeze(0).unsqueeze(2)
-
-        return output
-
-class DualCNN(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int) -> None:
-        super().__init__()
-
-        self.conv_1 = nn.Conv1d(in_ch, out_ch, ks_s, bias=False)
-        self.bn_1 = MaskedBatchNorm1d(out_ch)
-        self.conv_2_s = nn.Conv1d(out_ch, out_ch, ks_s, bias=False)
-        self.bn_2_s = MaskedBatchNorm1d(out_ch)
-        self.conv_3_s = nn.Conv1d(out_ch, out_ch, ks_s, bias=False)
-        self.bn_3_s = MaskedBatchNorm1d(out_ch)
-        self.conv_2_l = nn.Conv1d(out_ch, out_ch, 2 * ks_s - 1, bias=False)
-        self.bn_2_l = MaskedBatchNorm1d(out_ch)
-        self.conv_3_l = nn.Conv1d(out_ch, out_ch, 2 * ks_s - 1, bias=False)
-        self.bn_3_l = MaskedBatchNorm1d(out_ch)
-
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
-        hidden: torch.Tensor = self.conv_1(input)
-        hidden = F.silu(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
-        hidden_s: torch.Tensor = self.conv_2_s(hidden)
-        hidden_s = F.silu(self.bn_2_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
-        hidden_s = self.conv_3_s(hidden_s)
-        hidden_s = F.silu(self.bn_3_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
-        hidden_l: torch.Tensor = self.conv_2_l(hidden)
-        hidden_l = F.silu(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
-        hidden_l = self.conv_3_l(hidden_l)
-        hidden_l = F.silu(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
-
-        head_len = (hidden_s.shape[2] - hidden_l.shape[2]) // 2
-        tail_len = hidden_s.shape[2] - hidden_l.shape[2] - head_len
-        output = torch.cat((hidden_s[:, :, head_len:-tail_len], hidden_l), dim=1)
-
-        return output
-
-class SeparableDualCNN(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, fn: int, ks_s: int) -> None:
-        super().__init__()
-
-        self.conv_1_d = nn.Conv1d(1, fn, ks_s, bias=False)
-        self.conv_1_p = nn.Conv1d(in_ch * fn, out_ch, 1, bias=False)
-        self.bn_1 = MaskedBatchNorm1d(out_ch)
-        self.conv_2_s_d = nn.Conv1d(1, fn, ks_s, bias=False)
-        self.conv_2_s_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
-        self.bn_2_s = MaskedBatchNorm1d(out_ch)
-        self.conv_3_s_d = nn.Conv1d(1, fn, ks_s, bias=False)
-        self.conv_3_s_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
-        self.bn_3_s = MaskedBatchNorm1d(out_ch)
-        self.conv_2_l_d = nn.Conv1d(1, fn, 2 * ks_s - 1, bias=False)
-        self.conv_2_l_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
-        self.bn_2_l = MaskedBatchNorm1d(out_ch)
-        self.conv_3_l_d = nn.Conv1d(1, fn, 2 * ks_s - 1, bias=False)
-        self.conv_3_l_p = nn.Conv1d(out_ch * fn, out_ch, 1, bias=False)
-        self.bn_3_l = MaskedBatchNorm1d(out_ch)
-
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
-        batch_size = len(input)
-
-        hidden: torch.Tensor = self.conv_1_d(input.view(batch_size * input.shape[1], 1, input.shape[2]))    # (batch, channel, time) -> (batch * channel, 1, time) -> (batch * channel, fn, time)
-        hidden = self.conv_1_p(hidden.view(batch_size, -1, hidden.shape[2]))    # (batch * channel, fn, time) -> (batch, channel * fn, time) -> (batch, channel, time)
-        hidden = F.silu(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
-
-        hidden_s: torch.Tensor = self.conv_2_s_d(hidden.view(batch_size * hidden.shape[1], 1, hidden.shape[2]))
-        hidden_s = self.conv_2_s_p(hidden_s.view(batch_size, -1, hidden_s.shape[2]))
-        hidden_s = F.silu(self.bn_2_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
-        hidden_s = self.conv_3_s_d(hidden_s.view(batch_size * hidden_s.shape[1], 1, hidden_s.shape[2]))
-        hidden_s = self.conv_3_s_p(hidden_s.view(batch_size, -1, hidden_s.shape[2]))
-        hidden_s = F.silu(self.bn_3_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
-
-        hidden_l: torch.Tensor = self.conv_2_l_d(hidden.view(batch_size * hidden.shape[1], 1, hidden.shape[2]))
-        hidden_l = self.conv_2_l_p(hidden_l.view(batch_size, -1, hidden_l.shape[2]))
-        hidden_l = F.silu(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
-        hidden_l = self.conv_3_l_d(hidden_l.view(batch_size * hidden_l.shape[1], 1, hidden_l.shape[2]))
-        hidden_l = self.conv_3_l_p(hidden_l.view(batch_size, -1, hidden_l.shape[2]))
-        hidden_l = F.silu(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
-
-        head_len = (hidden_s.shape[2] - hidden_l.shape[2]) // 2
-        tail_len = hidden_s.shape[2] - hidden_l.shape[2] - head_len
-        output = torch.cat((hidden_s[:, :, head_len:-tail_len], hidden_l), dim=1)
-
-        return output
 
 class CorVSNet(BaseModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
-        if hparams["min_input_len"] < 5 * hparams["cnn_ks_s"] - 4:
-            raise ValueError("input cannot be shorter than receptive field of CNN backbone")
-        if hparams["xformer_d_model"] % 2 != 0:
-            raise ValueError("dimension of Transformer encoder must be even")
-        if hparams["time_agg"] == "cls_tok" and not hparams["use_cls_tok"]:
-            raise ValueError("time aggregation with CLS token needs to enable CLS token")
-
         super().__init__(hparams)
 
+        if self.hparams["min_input_len"] < 5 * self.hparams["cnn_ks_s"] - 4:
+            raise ValueError("input cannot be shorter than receptive field of CNN backbone")
+        if self.hparams["time_agg"] == "cls_tok" and not self.hparams["use_cls_tok"]:
+            raise ValueError("time aggregation with CLS token needs to enable CLS token")
+
         self.bn = MaskedBatchNorm1d(9, affine=False)
-        if hparams["sep_cnn"]:
-            self.cnn = SeparableDualCNN(9, hparams["xformer_d_model"] // 2, hparams["cnn_fn"], hparams["cnn_ks_s"])
+        if self.hparams["sep_cnn"]:
+            self.cnn = SeparableDualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_fn"], self.hparams["cnn_ks_s"])
         else:
-            self.cnn = DualCNN(9, hparams["xformer_d_model"] // 2, hparams["cnn_ks_s"])
+            self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
-        xformer_time_len = hparams["win_len"] - 5 * hparams["cnn_ks_s"] + 5
-        if hparams["use_cls_tok"]:
-            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, hparams["xformer_d_model"], dtype=torch.float32))
+        xformer_time_len = self.hparams["win_len"] - 5 * self.hparams["cnn_ks_s"] + 5
+        if self.hparams["use_cls_tok"]:
+            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
-        match hparams["xformer_pos_enc"]:
+        match self.hparams["xformer_pos_enc"]:
             case "learnable":
-                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, hparams["xformer_d_model"], dtype=torch.float32))
-                xformer_layer = nn.TransformerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
+                xformer_layer = nn.TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case "sinusoidal":
-                self.register_buffer("pos_emb", create_sin_pos_emb(hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
-                xformer_layer = nn.TransformerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
+                xformer_layer = nn.TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case "rope":
-                xformer_layer = RoFormerEncoderLayer(hparams["xformer_d_model"], hparams["xformer_nhead"], xformer_time_len, dim_feedforward=hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
             case _:
-                raise ValueError(f"unknown positional encoding {hparams['xformer_pos_enc']} was specified")
-        self.xformer = nn.TransformerEncoder(xformer_layer, hparams["xformer_n_layers"], norm=nn.LayerNorm(hparams["xformer_d_model"]), enable_nested_tensor=False)
+                raise ValueError(f"unknown positional encoding {self.hparams['xformer_pos_enc']} was specified")
+        self.xformer = nn.TransformerEncoder(xformer_layer, self.hparams["xformer_n_layers"], norm=nn.LayerNorm(self.hparams["xformer_d_model"]), enable_nested_tensor=False)
 
-        if hparams["time_agg"] == "attn_pool":
-            self.pool = MaskedGlobalAttnPool1d(hparams["xformer_d_model"], 1)
+        if self.hparams["time_agg"] == "attn_pool":
+            self.pool = MaskedGlobalAttnPool1d(self.hparams["xformer_d_model"], 1)
 
         self.mlp = nn.Sequential(
-            nn.Linear(hparams["xformer_d_model"], hparams["xformer_d_model"] // 4),
+            nn.Linear(self.hparams["xformer_d_model"], self.hparams["xformer_d_model"] // 4),
             nn.GELU(),
             nn.Dropout(p=0.1),
-            nn.Linear(hparams["xformer_d_model"] // 4, 1)
+            nn.Linear(self.hparams["xformer_d_model"] // 4, 1)
         )
 
         self.reset_parameters()
@@ -224,34 +59,34 @@ class CorVSNet(BaseModule):
         for m in self.modules():
             if isinstance(m, CorVSNet):
                 if m.hparams["use_cls_tok"]:
-                    nn.init.xavier_uniform_(m.cls_tok)
+                    init.xavier_uniform_(m.cls_tok)
                 if m.hparams["xformer_pos_enc"] == "learnable":
-                    nn.init.xavier_uniform_(m.pos_emb)
+                    init.xavier_uniform_(m.pos_emb)
 
             elif isinstance(m, nn.BatchNorm1d):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+                init.kaiming_normal_(m.weight)
                 if m.bias is not None:
-                    nn.init.zeros_(m.bias)
+                    init.zeros_(m.bias)
 
             elif isinstance(m, nn.LayerNorm):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    nn.init.zeros_(m.bias)
+                    init.zeros_(m.bias)
 
             elif isinstance(m, nn.MultiheadAttention):
                 m._reset_parameters()
 
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
         if valid_mask is None:
-            valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
+            valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=self.device)
 
-        hidden: torch.Tensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
+        hidden: torch.FloatTensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
         valid_mask = valid_mask[:, -hidden.shape[2]:]
         hidden = self.xformer(hidden.permute(2, 0, 1), src_key_padding_mask=~valid_mask)
@@ -266,7 +101,7 @@ class CorVSNetPredictor(CorVSNet, BasePredictor):
         rel = self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
         return prob, rel
 
-    def rel_estim(self, spd: torch.Tensor, linacc: torch.Tensor, valid_mask: torch.Tensor) -> torch.Tensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
+    def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
         cnt = valid_mask.count_nonzero(dim=1)
         spd_mean = (valid_mask * spd).sum(dim=1) / cnt
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
