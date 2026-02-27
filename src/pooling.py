@@ -7,7 +7,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
         super().__init__()
 
         if d_model % nhead != 0:
-            raise ValueError("dimension must be divisible by number of head")
+            raise ValueError("dimension must be divisible by number of heads")
 
         self.d_head, self.nhead = d_model // nhead, nhead
         self.proj = nn.Linear(d_model, nhead)
