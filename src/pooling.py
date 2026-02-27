@@ -12,11 +12,11 @@ class MaskedGlobalAttnPool1d(nn.Module):
         self.d_head, self.nhead = d_model // nhead, nhead
         self.proj = nn.Linear(d_model, nhead)
 
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (batch, dim, time), (batch, time) -> (batch, dim)
-        score: torch.FloatTensor = self.proj(input.transpose(1, 2))    # (batch, d_model, time) -> (batch, time, nhead)
-        score = score.masked_fill(~valid_mask.unsqueeze(2), -torch.inf)
-        output = (score.softmax(1).unsqueeze(3) * input.transpose(1, 2).view(len(input), input.shape[2], self.nhead, self.d_head)).sum(dim=1)    # (batch, time, nhead), (batch, d_model, time) -> (batch, nhead, d_head)
-        output = output.flatten(start_dim=1)
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
+        score: torch.FloatTensor = self.proj(input.transpose(-2, -1))    # (*, d_model, time) -> (*, time, nhead)
+        score = score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf)
+        output = (score.softmax(-2).unsqueeze(-1) * input.transpose(-2, -1).view(*input.shape[:-2], input.shape[-1], self.nhead, self.d_head)).sum(dim=-3)    # (*, time, nhead), (*, d_model, time) -> (*, nhead, d_head)
+        output = output.flatten(start_dim=-2)
         return output
 
 def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:
