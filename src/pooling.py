@@ -19,7 +19,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
         output = output.flatten(start_dim=-2)
         return output
 
-def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.IntTensor) -> torch.FloatTensor:
+def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:
     """
     Apply masked global average pooling along time dimension.
 
@@ -28,7 +28,7 @@ def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
     input : FloatTensor
         Input.
         Shape is (*, channel, time).
-    valid_mask : BoolTensor | IntTensor
+    valid_mask : BoolTensor | FloatTensor | IntTensor
         Mask of valid times.
         It takes True for valid and False for invalid.
         Shape is (*, time).
