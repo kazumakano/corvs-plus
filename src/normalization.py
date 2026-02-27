@@ -60,11 +60,11 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             self.eps
         )
 
-    def _check_input_dim(self, input: torch.Tensor) -> None:
+    def _check_input_dim(self, input: torch.FloatTensor) -> None:
         if input.dim() != 3:
             raise ValueError(f"expected 3D input (got {input.dim()}D input)")
 
-    def _check_mask(self, mask: torch.Tensor) -> None:
+    def _check_mask(self, mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> None:
         if mask.dim() != 2:
             raise ValueError(f"expected 2D mask (got {mask.dim()}D mask)")
         if mask.count_nonzero() == 0:

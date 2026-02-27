@@ -20,12 +20,12 @@ class BaseModule(L.LightningModule):
                 opt = optim.Adam(self.parameters(), lr=self.hparams["lr"])
             case "adamw":
                 if self.hparams["sched"] == "free":
-                    opt = optim.ScheduleFreeAdamW(self.parameters(), lr=self.hparams["lr"])
+                    return optim.ScheduleFreeAdamW(self.parameters(), lr=self.hparams["lr"])
                 else:
                     opt = optim.AdamW(self.parameters(), lr=self.hparams["lr"])
             case "sgd":
                 if self.hparams["sched"] == "free":
-                    opt = optim.ScheduleFreeSGD(self.parameters(), lr=self.hparams["lr"])
+                    return optim.ScheduleFreeSGD(self.parameters(), lr=self.hparams["lr"])
                 else:
                     opt = optim.SGD(self.parameters(), lr=self.hparams["lr"])
             case "soap":
@@ -34,8 +34,8 @@ class BaseModule(L.LightningModule):
                 raise ValueError(f"unknown optimizer {self.hparams['opt']} was specified")
 
         match self.hparams["sched"]:
-            case "free" | None:
-                return opt
+            case "free":
+                raise ValueError(f"free scheduler with optimizer {self.hparams['opt']} is not supported")
             case "warm_cos":
                 return {
                     "optimizer": opt,
@@ -44,6 +44,8 @@ class BaseModule(L.LightningModule):
                         "interval": "step"
                     }
                 }
+            case None:
+                return opt
             case _:
                 raise ValueError(f"unknown scheduler {self.hparams['sched']} was specified")
 
