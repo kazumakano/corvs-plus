@@ -5,7 +5,7 @@ win_stride: 10
 
 # architecture
 arch: corvsnet
-sep_cnn: false
+cnn_sep: false
 cnn_fn: null
 cnn_ks_s: 5
 use_cls_tok: false

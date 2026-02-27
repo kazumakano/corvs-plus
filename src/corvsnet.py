@@ -1,4 +1,5 @@
 from typing import Any, Optional
+import einops
 import torch
 from omegaconf import DictConfig
 from torch import nn
@@ -21,7 +22,7 @@ class CorVSNet(BaseModule):
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
         self.bn = MaskedBatchNorm1d(9, affine=False)
-        if self.hparams["sep_cnn"]:
+        if self.hparams["cnn_sep"]:
             self.cnn = SeparableDualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_fn"], self.hparams["cnn_ks_s"])
         else:
             self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
@@ -88,8 +89,17 @@ class CorVSNet(BaseModule):
 
         hidden: torch.FloatTensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
-        valid_mask = valid_mask[:, -hidden.shape[2]:]
-        hidden = self.xformer(hidden.permute(2, 0, 1), src_key_padding_mask=~valid_mask)
+
+        hidden = einops.rearrange(hidden, "b d t -> t b d")
+        if self.hparams["use_cls_tok"]:
+            cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
+            hidden = torch.cat((cls_tok, hidden))
+        if self.hparams["xformer_pos_enc"] in ("learnable", "sinusoidal"):
+            pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
+            hidden += pos_emb
+        valid_mask = valid_mask[:, -len(hidden):]
+        hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
+
         hidden = self.pool(hidden.permute(1, 2, 0), valid_mask)
         output = self.mlp(hidden)
 
