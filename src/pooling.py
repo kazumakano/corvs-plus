@@ -19,7 +19,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
         output = output.flatten(start_dim=-2)
         return output
 
-def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:
+def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.IntTensor) -> torch.FloatTensor:
     """
     Apply masked global average pooling along time dimension.
 
@@ -27,18 +27,18 @@ def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
     ----------
     input : FloatTensor
         Input.
-        Shape is (batch, channel, time).
-    valid_mask : BoolTensor
+        Shape is (*, channel, time).
+    valid_mask : BoolTensor | IntTensor
         Mask of valid times.
-        It takes 1 for valid and 0 for invalid.
-        Shape is (batch, time).
+        It takes True for valid and False for invalid.
+        Shape is (*, time).
 
     output : FloatTensor
         Averaged output.
-        Shape is (batch, channel).
+        Shape is (*, channel).
     """
 
-    return (valid_mask.unsqueeze(1) * input).sum(dim=2) / valid_mask.sum(dim=1, keepdim=True)
+    return (valid_mask.unsqueeze(-2) * input).sum(dim=-1) / valid_mask.sum(dim=-1, keepdim=True)
 
 def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:
     """
@@ -48,18 +48,18 @@ def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
     ----------
     input : FloatTensor
         Input.
-        Shape is (batch, channel, time).
+        Shape is (*, channel, time).
     valid_mask : BoolTensor
         Mask of valid times.
         It takes True for valid and False for invalid.
-        Shape is (batch, time).
+        Shape is (*, time).
 
     output : FloatTensor
         Maximum output.
-        Shape is (batch, channel).
+        Shape is (*, channel).
     """
 
-    return input.masked_fill(~valid_mask.unsqueeze(1), -torch.inf).max(dim=2).values
+    return input.masked_fill(~valid_mask.unsqueeze(-2), -torch.inf).max(dim=-1).values
 
 def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor, temp: float = 1) -> torch.FloatTensor:
     """
@@ -69,11 +69,11 @@ def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.Boo
     ----------
     input : FloatTensor
         Input.
-        Shape is (batch, channel, time).
+        Shape is (*, channel, time).
     valid_mask : BoolTensor
         Mask of valid times.
         It takes True for valid and False for invalid.
-        Shape is (batch, time).
+        Shape is (*, time).
     temp : float
         Temperature parameter.
         Standard if 1.
@@ -82,7 +82,7 @@ def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.Boo
     -------
     output : FloatTensor
         Soft maximum output.
-        Shape is (batch, channel).
+        Shape is (*, channel).
     """
 
-    return ((input / temp).masked_fill(~valid_mask.unsqueeze(1), -torch.inf).softmax(2) * input).sum(dim=2)
+    return ((input / temp).masked_fill(~valid_mask.unsqueeze(-2), -torch.inf).softmax(-1) * input).sum(dim=-1)
