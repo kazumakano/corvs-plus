@@ -1,7 +1,7 @@
 import math
 from typing import Any, Callable, Optional
 import torch
-from torch import jit, nn
+from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
 from torchtune import modules
@@ -38,10 +38,10 @@ def create_sin_pos_emb(dim: int, time_len: int, period_scale: float = 10000) -> 
     return emb
 
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
-    def forward(self, x: torch.FloatTensor, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
+    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
         """
         Modified from `RotaryPositionalEmbeddings.forward()`.
-        This method rebuild cache when input is longer than cache.
+        This method automatically rebuild cache when input is longer than cache.
         """
 
         seq_len = x.size(1)
@@ -51,7 +51,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         rope_cache = self.cache[:seq_len] if input_pos is None else self.cache[input_pos]
 
-        xshaped = x.float().reshape(x.shape[0], x.shape[1], x.shape[2], -1, 2)
+        xshaped = x.float().reshape(*x.shape[:-1], -1, 2)
 
         rope_cache = rope_cache.view(-1, xshaped.size(1), 1, xshaped.size(3), 2)
 
@@ -60,24 +60,37 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
         x_out = x_out.flatten(start_dim=3)
         return x_out.type_as(x)
 
-    def build_rope_cache(self, max_seq_len: int = 4096) -> None:
-        """
-        Modified from `RotaryPositionalEmbeddings.build_rope_cache()`
-        """
-
-        seq_idx = torch.arange(max_seq_len, dtype=self.theta.dtype, device=self.theta.device)
-
-        idx_theta = torch.einsum("i, j -> ij", seq_idx, self.theta).float()
-
-        cache = torch.stack([torch.cos(idx_theta), torch.sin(idx_theta)], dim=-1)
-        if "cache" in [n for n, _ in self.named_buffers()] or jit.is_scripting():
-            self.cache = cache
-        else:
-            self.register_buffer("cache", cache, persistent=False)
-
-    def multi_head_attention_forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, embed_dim_to_check: int, num_heads: int, in_proj_weight: torch.Tensor | None, in_proj_bias: torch.Tensor | None, bias_k: torch.Tensor | None, bias_v: torch.Tensor | None, add_zero_attn: bool, dropout_p: float, out_proj_weight: torch.Tensor, out_proj_bias: torch.Tensor | None, training: bool = True, key_padding_mask: Optional[torch.Tensor] = None, need_weights: bool = True, attn_mask: Optional[torch.Tensor] = None, use_separate_proj_weight: bool = False, q_proj_weight: Optional[torch.Tensor] = None, k_proj_weight: Optional[torch.Tensor] = None, v_proj_weight: Optional[torch.Tensor] = None, static_k: Optional[torch.Tensor] = None, static_v: Optional[torch.Tensor] = None, average_attn_weights: bool = True, is_causal: bool = False) -> tuple[torch.Tensor, torch.Tensor | None]:
+    def multi_head_attention_forward(
+            self,
+            query: torch.FloatTensor,
+            key: torch.FloatTensor,
+            value: torch.FloatTensor,
+            embed_dim_to_check: int,
+            num_heads: int,
+            in_proj_weight: torch.FloatTensor | None,
+            in_proj_bias: torch.FloatTensor | None,
+            bias_k: torch.FloatTensor | None,
+            bias_v: torch.FloatTensor | None,
+            add_zero_attn: bool,
+            dropout_p: float,
+            out_proj_weight: torch.FloatTensor,
+            out_proj_bias: torch.FloatTensor | None,
+            training: bool = True,
+            key_padding_mask: Optional[torch.BoolTensor | torch.FloatTensor] = None,
+            need_weights: bool = True,
+            attn_mask: Optional[torch.BoolTensor | torch.FloatTensor] = None,
+            use_separate_proj_weight: bool = False,
+            q_proj_weight: Optional[torch.FloatTensor] = None,
+            k_proj_weight: Optional[torch.FloatTensor] = None,
+            v_proj_weight: Optional[torch.FloatTensor] = None,
+            static_k: Optional[torch.FloatTensor] = None,
+            static_v: Optional[torch.FloatTensor] = None,
+            average_attn_weights: bool = True,
+            is_causal: bool = False
+        ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
         """
         Modified from `multi_head_attention_forward()`.
+        This method applies RoPE to query and key.
         """
 
         is_batched = F._mha_shape_check(query, key, value, key_padding_mask, attn_mask, num_heads)
@@ -250,11 +263,33 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             return attn_output, None
 
 class RotaryMultiheadAttention(nn.MultiheadAttention):
-    def __init__(self, embed_dim: int, num_heads: int, time_len: int, dropout: float = 0.0, bias: bool = True, add_bias_kv: bool = False, add_zero_attn: bool = False, kdim: Optional[int] = None, vdim: Optional[int] = None, batch_first: bool = False, device: Any = None, dtype: Any = None) -> None:
+    def __init__(
+            self,
+            embed_dim: int,
+            num_heads: int,
+            time_len: int,
+            dropout: float = 0.0,
+            bias: bool = True,
+            add_bias_kv: bool = False,
+            add_zero_attn: bool = False,
+            kdim: Optional[int] = None,
+            vdim: Optional[int] = None,
+            batch_first: bool = False,
+            device: Any = None,
+            dtype: Any = None
+        ) -> None:
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
         self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, max_seq_len=time_len)
 
-    def forward(self, query: torch.FloatTensor, key: torch.FloatTensor, value: torch.FloatTensor, key_padding_mask: Optional[torch.BoolTensor] = None, need_weights: bool = True, attn_mask: Optional[torch.BoolTensor] = None, average_attn_weights: bool = True, is_causal: bool = False) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
+    def forward(self, query: torch.FloatTensor,
+            key: torch.FloatTensor,
+            value: torch.FloatTensor,
+            key_padding_mask: Optional[torch.BoolTensor | torch.FloatTensor] = None,
+            need_weights: bool = True,
+            attn_mask: Optional[torch.BoolTensor | torch.FloatTensor] = None,
+            average_attn_weights: bool = True,
+            is_causal: bool = False
+        ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
         """
         Modidied from `MultiheadAttention.forward()`.
         This method applies RoPE to query and key.
@@ -323,7 +358,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
                 merged_mask, mask_type = self.merge_masks(attn_mask, key_padding_mask, query)
 
                 if self.in_proj_bias is not None and self.in_proj_weight is not None:
-                    return torch._native_multi_head_attention(query, key, value, self.embed_dim, self.num_heads, self.in_proj_weight, self.in_proj_bias, self.out_proj.weight, self.out_proj.bias, merged_mask, need_weights, average_attn_weights, mask_type)
+                    raise RuntimeError("naive implementation is not supported")
 
         any_nested = query.is_nested or key.is_nested or value.is_nested
         assert not any_nested, f"MultiheadAttention does not support NestedTensor outside of its fast path. The fast path was not hit because {why_not_fast_path}"
@@ -396,6 +431,20 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
         self.rope.reset_parameters()
 
 class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
-    def __init__(self, d_model: int, nhead: int, time_len: int, dim_feedforward: int = 2048, dropout: float = 0.1, activation: str | Callable[[torch.Tensor], torch.Tensor] = F.relu, layer_norm_eps: float = 0.00001, batch_first: bool = False, norm_first: bool = False, bias: bool = True, device: Any = None, dtype: Any = None) -> None:
+    def __init__(
+            self,
+            d_model: int,
+            nhead: int,
+            time_len: int,
+            dim_feedforward: int = 2048,
+            dropout: float = 0.1,
+            activation: str | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
+            layer_norm_eps: float = 0.00001,
+            batch_first: bool = False,
+            norm_first: bool = False,
+            bias: bool = True,
+            device: Any = None,
+            dtype: Any = None
+        ) -> None:
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
         self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, batch_first=batch_first, device=device, dtype=dtype)
