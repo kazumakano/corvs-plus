@@ -35,7 +35,7 @@ class BaseModule(L.LightningModule):
 
         match self.hparams["sched"]:
             case "free":
-                raise ValueError(f"free scheduler with optimizer {self.hparams['opt']} is not supported")
+                raise ValueError(f"free scheduler is not supported for optimizer {self.hparams['opt']}")
             case "warm_cos":
                 return {
                     "optimizer": opt,

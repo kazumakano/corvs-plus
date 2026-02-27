@@ -8,7 +8,7 @@ from torch.nn import init
 from src.base import BaseModule, BasePredictor
 from src.cnn import DualCNN, SeparableDualCNN
 from src.normalization import MaskedBatchNorm1d
-from src.pooling import MaskedGlobalAttnPool1d
+from src.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
 from src.transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
 
@@ -100,7 +100,21 @@ class CorVSNet(BaseModule):
         valid_mask = valid_mask[:, -len(hidden):]
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
-        hidden = self.pool(hidden.permute(1, 2, 0), valid_mask)
+        hidden = einops.rearrange(hidden, "t b d -> b d t")
+        match self.hparams["time_agg"]:
+            case "attn_pool":
+                hidden = self.pool(hidden, valid_mask)
+            case "avg_pool":
+                hidden = masked_global_avg_pool1d(hidden, valid_mask)
+            case "cls_tok":
+                hidden = hidden[:, :, 0]
+            case "max_pool":
+                hidden = masked_global_max_pool1d(hidden, valid_mask)
+            case "softmax_pool":
+                hidden = masked_global_softmax_pool1d(hidden, valid_mask)
+            case _:
+                raise ValueError(f"unknown time aggregation {self.hparams['time_agg']} was specified")
+
         output = self.mlp(hidden)
 
         return output
