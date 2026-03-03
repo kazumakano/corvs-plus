@@ -61,14 +61,14 @@ class BaseModule(L.LightningModule):
         if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
-    def on_predict_start(self) -> None:
-        if self.hparams["sched"] == "free":
-            self.optimizers().optimizer.eval()
-
     def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
 class BasePredictor(L.LightningModule):
+    def on_predict_start(self) -> None:
+        if self.hparams["sched"] == "free":
+            self.optimizers().optimizer.eval()
+
     @classmethod
     def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, device: int | str | torch.device = "cpu", **kwargs: Any) -> Self:
         self = cls(hparams=hparams, **kwargs)
