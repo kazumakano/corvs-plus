@@ -64,7 +64,7 @@ class BaseModule(L.LightningModule):
     def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
-class BasePredictor(L.LightningModule):
+class BasePredictModule(L.LightningModule):
     def on_predict_start(self) -> None:
         if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()

@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from src.base import BaseModule, BasePredictor
+from src.base import BaseModule, BasePredictModule
 from src.cnn import DualCNN, SeparableDualCNN
 from src.normalization import MaskedBatchNorm1d
 from src.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
@@ -119,7 +119,7 @@ class CorVSNet(BaseModule):
 
         return output
 
-class CorVSNetPredictor(CorVSNet, BasePredictor):
+class CorVSNetPredictor(CorVSNet, BasePredictModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
         rel = self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
