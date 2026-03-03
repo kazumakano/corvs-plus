@@ -18,7 +18,7 @@ class CorVSNet(BaseModule):
 
         if self.hparams["min_input_len"] < 5 * self.hparams["cnn_ks_s"] - 4:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
-        if self.hparams["time_agg"] == "cls_tok" and not self.hparams["use_cls_tok"]:
+        if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
         self.bn = MaskedBatchNorm1d(9, affine=False)
@@ -28,7 +28,7 @@ class CorVSNet(BaseModule):
             self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
         xformer_time_len = self.hparams["win_len"] - 5 * self.hparams["cnn_ks_s"] + 5
-        if self.hparams["use_cls_tok"]:
+        if self.hparams["cls_tok"]:
             self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
         match self.hparams["xformer_pos_enc"]:
@@ -59,7 +59,7 @@ class CorVSNet(BaseModule):
     def reset_parameters(self) -> None:
         for m in self.modules():
             if isinstance(m, CorVSNet):
-                if m.hparams["use_cls_tok"]:
+                if m.hparams["cls_tok"]:
                     init.xavier_uniform_(m.cls_tok)
                 if m.hparams["xformer_pos_enc"] == "learnable":
                     init.xavier_uniform_(m.pos_emb)
@@ -91,7 +91,7 @@ class CorVSNet(BaseModule):
         hidden = self.cnn(hidden, valid_mask)
 
         hidden = einops.rearrange(hidden, "b d t -> t b d")
-        if self.hparams["use_cls_tok"]:
+        if self.hparams["cls_tok"]:
             cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
             hidden = torch.cat((cls_tok, hidden))
         if self.hparams["xformer_pos_enc"] in ("learnable", "sinusoidal"):

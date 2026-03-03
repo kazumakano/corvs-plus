@@ -8,7 +8,7 @@ arch: corvsnet
 cnn_sep: false
 cnn_fn: null
 cnn_ks_s: 5
-use_cls_tok: false
+cls_tok: false
 xformer_pos_enc: rope
 xformer_n_layers: 4
 xformer_d_model: 48
