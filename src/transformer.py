@@ -282,7 +282,9 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
         self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, max_seq_len=time_len, base=rope_base)
 
-    def forward(self, query: torch.FloatTensor,
+    def forward(
+            self,
+            query: torch.FloatTensor,
             key: torch.FloatTensor,
             value: torch.FloatTensor,
             key_padding_mask: Optional[torch.BoolTensor | torch.FloatTensor] = None,
