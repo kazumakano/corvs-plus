@@ -41,7 +41,7 @@ dill==0.4.0
     #   datasets
     #   multiprocess
 einops==0.8.2
-    # via corvs-plus
+    # via corvs
 filelock==3.25.0
     # via
     #   blobfile
@@ -87,7 +87,7 @@ kagglehub==1.0.0
 kagglesdk==0.1.16
     # via kagglehub
 lightning==2.6.1
-    # via corvs-plus
+    # via corvs
 lightning-utilities==0.15.3
     # via
     #   lightning
@@ -159,7 +159,7 @@ nvidia-nvtx-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'li
     # via torch
 omegaconf==2.3.0
     # via
-    #   corvs-plus
+    #   corvs
     #   torchtune
 packaging==26.0
     # via
@@ -172,7 +172,7 @@ packaging==26.0
     #   torchmetrics
 pandas==3.0.1
     # via
-    #   corvs-plus
+    #   corvs
     #   datasets
 pillow==12.1.1
     # via torchtune
@@ -195,7 +195,7 @@ python-dateutil==2.9.0.post0
 pytorch-lightning==2.6.1
     # via lightning
 pytorch-optimizer==3.10.0
-    # via corvs-plus
+    # via corvs
 pyyaml==6.0.3
     # via
     #   datasets
@@ -217,7 +217,7 @@ rich==14.3.3
     # via typer
 safetensors==0.7.0
     # via
-    #   corvs-plus
+    #   corvs
     #   torchtune
 sentencepiece==0.2.1
     # via torchtune
@@ -235,14 +235,14 @@ tokenizers==0.22.2
     # via torchtune
 torch==2.10.0
     # via
-    #   corvs-plus
+    #   corvs
     #   lightning
     #   pytorch-lightning
     #   pytorch-optimizer
     #   torchdata
     #   torchmetrics
 torchao==0.15.0
-    # via corvs-plus
+    # via corvs
 torchdata==0.11.0
     # via torchtune
 torchmetrics==1.8.2
@@ -250,7 +250,7 @@ torchmetrics==1.8.2
     #   lightning
     #   pytorch-lightning
 torchtune==0.6.1
-    # via corvs-plus
+    # via corvs
 tqdm==4.67.3
     # via
     #   datasets
