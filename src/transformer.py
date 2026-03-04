@@ -361,7 +361,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
                 merged_mask, mask_type = self.merge_masks(attn_mask, key_padding_mask, query)
 
                 if self.in_proj_bias is not None and self.in_proj_weight is not None:
-                    raise RuntimeError("naive implementation is not supported")
+                    raise NotImplementedError("naive multi head attention is not implemented")
 
         any_nested = query.is_nested or key.is_nested or value.is_nested
         assert not any_nested, f"MultiheadAttention does not support NestedTensor outside of its fast path. The fast path was not hit because {why_not_fast_path}"
