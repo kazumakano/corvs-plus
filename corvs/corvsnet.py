@@ -5,11 +5,11 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from src.base import BaseModule, BasePredictModule
-from src.cnn import DualCNN, SeparableDualCNN
-from src.normalization import MaskedBatchNorm1d
-from src.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
-from src.transformer import RoFormerEncoderLayer, create_sin_pos_emb
+from corvs.base import BaseModule, BasePredictModule
+from corvs.cnn import DualCNN, SeparableDualCNN
+from corvs.normalization import MaskedBatchNorm1d
+from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
+from corvs.transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
 
 class CorVSNet(BaseModule):

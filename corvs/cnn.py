@@ -2,7 +2,7 @@ from typing import Callable
 import torch
 from torch import nn
 from torch.nn import functional as F
-from src.normalization import MaskedBatchNorm1d
+from corvs.normalization import MaskedBatchNorm1d
 
 
 class DualCNN(nn.Module):

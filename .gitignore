@@ -1,4 +1,5 @@
-src/__pycache__/
+.venv/
+corvs/__pycache__/
 dataset/model.safetensors
 dataset/preview.mp4
 dataset/readme.md

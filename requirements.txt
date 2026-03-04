@@ -72,6 +72,7 @@ httpx==0.28.1
 huggingface-hub==1.5.0
     # via
     #   datasets
+    #   tokenizers
     #   torchtune
 idna==3.11
     # via
@@ -81,6 +82,10 @@ idna==3.11
     #   yarl
 jinja2==3.1.6
     # via torch
+kagglehub==1.0.0
+    # via torchtune
+kagglesdk==0.1.16
+    # via kagglehub
 lightning==2.6.1
     # via corvs-plus
 lightning-utilities==0.15.3
@@ -106,7 +111,7 @@ multiprocess==0.70.18
     # via datasets
 networkx==3.6.1
     # via torch
-numpy==1.26.4
+numpy==2.4.2
     # via
     #   datasets
     #   pandas
@@ -160,22 +165,25 @@ packaging==26.0
     # via
     #   datasets
     #   huggingface-hub
+    #   kagglehub
     #   lightning
     #   lightning-utilities
     #   pytorch-lightning
     #   torchmetrics
-pandas==2.3.3 ; python_full_version >= '3.14'
+pandas==3.0.1
     # via
     #   corvs-plus
     #   datasets
-pandas==3.0.1 ; python_full_version < '3.14'
-    # via
-    #   corvs-plus
-    #   datasets
+pillow==12.1.1
+    # via torchtune
 propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
+protobuf==7.34.0
+    # via kagglesdk
+psutil==7.2.2
+    # via torchtune
 pyarrow==23.0.1
     # via datasets
 pycryptodomex==3.23.0
@@ -188,12 +196,11 @@ pytorch-lightning==2.6.1
     # via lightning
 pytorch-optimizer==3.10.0
     # via corvs-plus
-pytz==2026.1.post1 ; python_full_version >= '3.14'
-    # via pandas
 pyyaml==6.0.3
     # via
     #   datasets
     #   huggingface-hub
+    #   kagglehub
     #   lightning
     #   omegaconf
     #   pytorch-lightning
@@ -202,7 +209,10 @@ regex==2026.2.28
 requests==2.32.5
     # via
     #   datasets
+    #   kagglehub
+    #   kagglesdk
     #   tiktoken
+    #   torchdata
 rich==14.3.3
     # via typer
 safetensors==0.7.0
@@ -221,25 +231,31 @@ sympy==1.14.0
     # via torch
 tiktoken==0.12.0
     # via torchtune
+tokenizers==0.22.2
+    # via torchtune
 torch==2.10.0
     # via
     #   corvs-plus
     #   lightning
     #   pytorch-lightning
     #   pytorch-optimizer
+    #   torchdata
     #   torchmetrics
-torchao==0.16.0
+torchao==0.15.0
     # via corvs-plus
+torchdata==0.11.0
+    # via torchtune
 torchmetrics==1.8.2
     # via
     #   lightning
     #   pytorch-lightning
-torchtune==0.3.0
+torchtune==0.6.1
     # via corvs-plus
 tqdm==4.67.3
     # via
     #   datasets
     #   huggingface-hub
+    #   kagglehub
     #   lightning
     #   pytorch-lightning
     #   torchtune
@@ -256,12 +272,13 @@ typing-extensions==4.15.0
     #   lightning-utilities
     #   pytorch-lightning
     #   torch
-tzdata==2025.3 ; python_full_version >= '3.14' or sys_platform == 'emscripten' or sys_platform == 'win32'
+tzdata==2025.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
 urllib3==2.6.3
     # via
     #   blobfile
     #   requests
+    #   torchdata
 xxhash==3.6.0
     # via datasets
 yarl==1.23.0

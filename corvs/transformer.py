@@ -432,7 +432,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
     def _reset_parameters(self) -> None:
         super()._reset_parameters()
         if hasattr(self, "rope"):
-            self.rope.reset_parameters()
+            self.rope.rope_init()
 
 class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
     def __init__(
