@@ -1,1 +1,7 @@
 src/__pycache__/
+dataset/model.safetensors
+dataset/preview.mp4
+dataset/readme.md
+dataset/sensor/
+dataset/trajectory/
+dataset/video/

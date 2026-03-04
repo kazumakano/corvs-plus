@@ -1,0 +1,17 @@
+[project]
+name = "corvs-plus"
+version = "1.0.0"
+description = "Sample code of CorVS+"
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+    "einops>=0.8.2",
+    "lightning>=2.6.1",
+    "omegaconf>=2.3.0",
+    "pandas>=2.3.3",
+    "pytorch-optimizer>=3.10.0",
+    "safetensors>=0.7.0",
+    "torch>=2.10.0",
+    "torchao>=0.16.0",
+    "torchtune==0.3.0",
+]
