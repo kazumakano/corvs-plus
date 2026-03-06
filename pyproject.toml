@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling >= 1.29"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,15 +7,25 @@ name = "corvs"
 version = "1.0.0"
 description = "Sample code of CorVS+"
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+authors = [
+    { name = "Kazuma Kano", email = "kazuma@ucl.nuee.nagoya-u.ac.jp" }
+]
+license-files = ["LICENSE"]
+
+requires-python = ">=3.11, <3.12"
 dependencies = [
     "einops>=0.8.2",
     "lightning>=2.6.1",
     "omegaconf>=2.3.0",
     "pandas>=3.0.1",
-    "pytorch-optimizer>=3.10.0",
+    "pytorch_optimizer>=3.10.0",
     "safetensors>=0.7.0",
     "torch==2.9.1",
     "torchao==0.15.0",
     "torchtune>=0.6.1",
 ]
+
+[project.urls]
+Paper = ""
+Dataset = "https://doi.org/10.5281/zenodo.17745683"
+Code = "https://github.com/kazumakano/corvs-plus"

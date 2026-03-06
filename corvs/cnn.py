@@ -46,7 +46,8 @@ class DualCNN(nn.Module):
 
 class SeparableConv1d(nn.Module):
     def __init__(
-            self, in_ch: int,
+            self,
+            in_ch: int,
             out_ch: int,
             ks: int,
             fn: int = 1,
