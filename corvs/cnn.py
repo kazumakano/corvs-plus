@@ -1,5 +1,4 @@
 from typing import Callable, Literal
-import einops
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -61,7 +60,7 @@ class SeparableConv1d(nn.Module):
         super().__init__()
 
         self.conv_d = nn.Conv1d(in_ch, fn * in_ch, ks, stride=st, padding=pad, dilation=dil, groups=in_ch, bias=False, padding_mode=pad_mode)
-        self.conv_p = nn.Conv1d(in_ch * fn, out_ch, 1, groups=grps, bias=bias)
+        self.conv_p = nn.Conv1d(fn * in_ch, out_ch, 1, groups=grps, bias=bias)
 
     def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:    # (*, channel, time) -> (*, channel, time)
         hidden = self.conv_d(input)
