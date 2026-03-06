@@ -23,7 +23,7 @@ class CorVSNet(BaseModule):
 
         self.bn = MaskedBatchNorm1d(9, affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_fn"], self.hparams["cnn_ks_s"])
+            self.cnn = SeparableDualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
         else:
             self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
