@@ -48,8 +48,8 @@ class SeparableConv1d(nn.Module):
     def __init__(
             self, in_ch: int,
             out_ch: int,
-            fn: int,
             ks: int,
+            fn: int = 1,
             st: int = 1,
             pad: int = 0,
             dil: int = 1,
@@ -68,13 +68,13 @@ class SeparableConv1d(nn.Module):
         return output
 
 class SeparableDualCNN(DualCNN):
-    def __init__(self, in_ch: int, out_ch: int, fn: int, ks_s: int, act_func: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act_func: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         super().__init__(in_ch, out_ch, ks_s, act_func)
 
         half_out_ch = out_ch // 2
 
-        self.conv_1 = SeparableConv1d(in_ch, half_out_ch, fn, ks_s, bias=False)
-        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, bias=False)
-        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, bias=False)
-        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, bias=False)
-        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, bias=False)
+        self.conv_1 = SeparableConv1d(in_ch, half_out_ch, ks_s, fn, bias=False)
+        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
+        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
+        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
+        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
