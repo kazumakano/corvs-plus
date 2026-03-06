@@ -7,7 +7,7 @@ from torch.nn import functional as F
 class MaskedBatchNorm1d(nn.BatchNorm1d):
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
         """
-        Modified from `BatchNorm1d.forward()`.
+        Modified from `torch.nn.BatchNorm1d.forward()`.
         This method supports masking.
 
         Parameters
@@ -83,7 +83,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             eps: float = 1e-5
         ) -> torch.FloatTensor:
         """
-        Modified from `batch_norm()`.
+        Modified from `torch.nn.functional.batch_norm()`.
         This method supports masking.
         """
 

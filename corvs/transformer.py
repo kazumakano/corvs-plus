@@ -16,7 +16,7 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.Fl
     dim : int
         Dimension.
     time_len : int
-        Time length.
+        Temporal length.
     base : float
         Base frequency.
         Maximum period is `2π * base`.
@@ -40,7 +40,7 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.Fl
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
     def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
         """
-        Modified from `RotaryPositionalEmbeddings.forward()`.
+        Modified from `torchtune.modules.RotaryPositionalEmbeddings.forward()`.
         This method automatically rebuild cache when input is longer than cache.
         """
 
@@ -89,7 +89,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             is_causal: bool = False
         ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
         """
-        Modified from `multi_head_attention_forward()`.
+        Modified from `torch.nn.functional.multi_head_attention_forward()`.
         This method applies RoPE to query and key.
         """
 
@@ -294,7 +294,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             is_causal: bool = False
         ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
         """
-        Modidied from `MultiheadAttention.forward()`.
+        Modidied from `torch.nn.MultiheadAttention.forward()`.
         This method applies RoPE to query and key.
         """
 

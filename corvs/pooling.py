@@ -1,6 +1,7 @@
 import einops
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
 class MaskedGlobalAttnPool1d(nn.Module):
@@ -15,7 +16,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
         score: torch.FloatTensor = self.proj(input.transpose(-2, -1))
-        weight = score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf).softmax(-2)
+        weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)
         weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
         input = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead, dh=self.d_head)
         output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
@@ -87,4 +88,4 @@ def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.Boo
         Shape is (*, channel).
     """
 
-    return ((input / temp).masked_fill(~valid_mask.unsqueeze(-2), -torch.inf).softmax(-1) * input).sum(dim=-1)
+    return (F.softmax((input / temp).masked_fill(~valid_mask.unsqueeze(-2), -torch.inf), dim=-1) * input).sum(dim=-1)
