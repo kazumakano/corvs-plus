@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Literal
 import einops
 import torch
 from torch import nn
@@ -46,25 +46,26 @@ class DualCNN(nn.Module):
         return output
 
 class SeparableConv1d(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, fn: int, ks: int, bias: bool = True) -> None:
+    def __init__(
+            self, in_ch: int,
+            out_ch: int,
+            fn: int,
+            ks: int,
+            st: int = 1,
+            pad: int = 0,
+            dil: int = 1,
+            grps: int = 1,
+            bias: bool = True,
+            pad_mode: Literal["zeros", "reflect", "replicate", "circular"] = "zeros"
+        ) -> None:
         super().__init__()
 
-        self.conv_d = nn.Conv1d(1, fn, ks, bias=False)
-        self.conv_p = nn.Conv1d(in_ch * fn, out_ch, 1, bias=bias)
+        self.conv_d = nn.Conv1d(in_ch, fn * in_ch, ks, stride=st, padding=pad, dilation=dil, groups=in_ch, bias=False, padding_mode=pad_mode)
+        self.conv_p = nn.Conv1d(in_ch * fn, out_ch, 1, groups=grps, bias=bias)
 
     def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:    # (*, channel, time) -> (*, channel, time)
-        if not (is_batched := input.ndim == 3):
-            input = input.unsqueeze(0)
-        batch_size = len(input)
-
-        input = einops.rearrange(input, "b c t -> (b c) 1 t")
         hidden = self.conv_d(input)
-        hidden = einops.rearrange(hidden, "(b c) f t -> b (c f) t", b=batch_size)
-        output: torch.FloatTensor = self.conv_p(hidden)
-
-        if not is_batched:
-            output = output.squeeze(dim=0)
-
+        output = self.conv_p(hidden)
         return output
 
 class SeparableDualCNN(DualCNN):
@@ -73,8 +74,8 @@ class SeparableDualCNN(DualCNN):
 
         half_out_ch = out_ch // 2
 
-        self.conv_1 = SeparableConv1d(in_ch, half_out_ch, fn, ks_s, False)
-        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, False)
-        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, False)
-        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, False)
-        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, False)
+        self.conv_1 = SeparableConv1d(in_ch, half_out_ch, fn, ks_s, bias=False)
+        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, bias=False)
+        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, fn, ks_s, bias=False)
+        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, bias=False)
+        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, fn, 2 * ks_s - 1, bias=False)
