@@ -74,7 +74,6 @@ class SeparableDualCNN(DualCNN):
 
         half_out_ch = out_ch // 2
 
-        self.conv_1 = SeparableConv1d(in_ch, half_out_ch, ks_s, fn, bias=False)
         self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
         self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
         self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
