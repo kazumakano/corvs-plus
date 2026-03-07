@@ -52,7 +52,7 @@ class SeparableConv1d(nn.Module):
             ks: int,
             fn: int = 1,
             st: int = 1,
-            pad: int = 0,
+            pad: int | Literal["same", "valid"] = 0,
             dil: int = 1,
             grps: int = 1,
             bias: bool = True,
