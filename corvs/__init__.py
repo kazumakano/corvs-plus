@@ -1,4 +1,4 @@
 from .corvsnet import CorVSNet, CorVSNetPredictor
-from .data import CorVSDataset, CorVSDataModule, CorVSPredictDataModule
+from .data import CorVSDataModule, CorVSPredictDataModule
 
 __all__ = ["corvsnet", "data"]
