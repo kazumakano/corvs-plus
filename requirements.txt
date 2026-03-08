@@ -92,6 +92,8 @@ lightning-utilities==0.15.3
     #   lightning
     #   pytorch-lightning
     #   torchmetrics
+llvmlite==0.46.0
+    # via numba
 lxml==6.0.2
     # via blobfile
 markdown==3.10.2
@@ -114,10 +116,13 @@ multiprocess==0.70.18
     # via datasets
 networkx==3.6.1
     # via torch
+numba==0.64.0
+    # via corvs
 numpy==2.4.2
     # via
     #   corvs
     #   datasets
+    #   numba
     #   pandas
     #   pytorch-optimizer
     #   scipy

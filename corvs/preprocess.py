@@ -1,5 +1,6 @@
 import math
 from typing import Literal, TypeVar, overload
+import numba
 import numpy as np
 import pandas as pd
 import torch
@@ -22,6 +23,7 @@ def loc_to_spd(loc: ArrayLike, freq_in_hz: float, resol_per_px: float) -> NDArra
 
 FloatingT = TypeVar("FloatingT", bound=np.floating)
 
+@numba.njit(cache=True)
 def to_convex(ang: NDArray[FloatingT]) -> NDArray[FloatingT]:
     return (ang + math.pi) % (2 * math.pi) - math.pi
 
