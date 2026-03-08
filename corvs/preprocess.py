@@ -6,6 +6,7 @@ import torch
 from numpy import linalg
 from numpy.typing import ArrayLike, NDArray
 from pandas.core.groupby import DataFrameGroupBy
+from torch.nn import functional as F
 from torch.nn.utils import rnn
 
 
@@ -48,9 +49,31 @@ def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
 
     return time, *val_list
 
-def pad(seqs: torch.Tensor | list[torch.Tensor], max_len: int, batch_first: bool = False, pad_val: float = 0) -> torch.Tensor:
+def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool = False, pad_val: float = 0) -> torch.Tensor:
+    """
+    Pad or truncate variable length sequences to a uniform length.
+
+    Parameters
+    ----------
+    seqs : Tensor | list[Tensor]
+        List of sequences.
+        Shape is (batch, sequence, ...).
+    seq_len : int
+        Target sequence length.
+    batch_first : bool
+        Place batch dimension to first or not.
+    pad_val : float
+        Padding value.
+
+    Returns
+    -------
+    seqs : Tensor
+        Padded sequences.
+        Shape is (batch, time, ...) if batch first, (time, batch, ...) otherwise.
+    """
+
     seqs = rnn.pad_sequence(seqs, batch_first=batch_first, padding_value=pad_val)
     if batch_first:
-        return torch.cat((seqs, torch.full((len(seqs), max_len - seqs.shape[1], *seqs.shape[2:]), pad_val, dtype=seqs.dtype, device=seqs.device, requires_grad=seqs.requires_grad)), dim=1)
+        return F.pad(seqs, (0, seq_len - seqs.shape[1], *[0 for _ in range(seqs.ndim - 2)]), value=pad_val)
     else:
-        return torch.cat((seqs, torch.full((max_len - len(seqs), *seqs.shape[1:]), pad_val, dtype=seqs.dtype, device=seqs.device, requires_grad=seqs.requires_grad)), dim=0)
+        return F.pad(seqs, (seq_len - len(seqs.shape), *[0 for _ in range(seqs.ndim - 1)]), value=pad_val)
