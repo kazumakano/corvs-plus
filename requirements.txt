@@ -108,9 +108,11 @@ networkx==3.6.1
     # via torch
 numpy==2.4.2
     # via
+    #   corvs
     #   datasets
     #   pandas
     #   pytorch-optimizer
+    #   scipy
     #   torchmetrics
     #   torchtune
 nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
@@ -214,6 +216,8 @@ safetensors==0.7.0
     # via
     #   corvs
     #   torchtune
+scipy==1.17.1
+    # via corvs
 sentencepiece==0.2.1
     # via torchtune
 shellingham==1.5.4
