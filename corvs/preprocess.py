@@ -71,7 +71,7 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], tgt_len: int, batch_first: bool
     -------
     seqs : Tensor
         Padded sequences.
-        Shape is (batch, time, ...) if batch first, (time, batch, ...) otherwise.
+        Shape is (batch, tgt_len, ...) if batch first, (tgt_len, batch, ...) otherwise.
     """
 
     seqs = rnn.pad_sequence(seqs, batch_first=batch_first, padding_value=pad_val, padding_side=pad_side)
