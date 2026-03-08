@@ -40,28 +40,26 @@ class CorVSPredictDataset(data.Dataset):
         self.sensor_feat: list[torch.FloatTensor] = []
         self.map: list[tuple[int, int, int]] = []
         if len(sensor_data) / SENSOR_FREQ > hparams["min_input_len"] / hparams["freq"]:
-            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), axis=0)
+            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), hparams["smooth_sd"] * SENSOR_FREQ, axis=0)
 
             for i, td in preprocess.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td.iloc[0]["time"], td.iloc[-1]["time"], step=1 / TRAJ_FREQ, dtype=np.float64)
-                if len(traj_time) / TRAJ_FREQ > hparams["min_input_len"] / hparams["freq"]:
+
+                if (len(traj_time) - 2) / TRAJ_FREQ > hparams["min_input_len"] / hparams["freq"]:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, assume_sorted=True)(traj_time)
-                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), TRAJ_FREQ / 5)
-                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), TRAJ_FREQ / 5)
+                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), hparams["smooth_sd"] * TRAJ_FREQ)
+                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), hparams["smooth_sd"] * TRAJ_FREQ)
 
                     time, spd, ang_vel, meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, hparams["freq"])
                     self.traj_feat.append(torch.from_numpy(np.column_stack((spd.astype(np.float32), ang_vel.astype(np.float32)))))
                     self.sensor_feat.append(torch.from_numpy(meas.astype(np.float32)))
 
-                    if len(time) < self.win_len:
-                        win_num = 1
-                    else:
-                        win_num = (len(time) - self.win_len) // self.win_stride + 1
+                    valid_len = min(self.win_len, len(time))
+                    win_num = max(1, (len(time) - self.win_len) // self.win_stride + 1)
                     self.time.append(torch.empty(win_num, dtype=torch.float64))
                     for j in range(win_num):
-                        valid_len = min(len(time) - j * self.win_stride, self.win_len)
-                        self.map.append((i, j, valid_len))
                         self.time[-1][j] = time[j * self.win_stride]
+                        self.map.append((i, j, valid_len))
 
     @staticmethod
     def _load_traj_data(path: Path, traj_track_id: int, start: float | None, stop: float | None) -> pd.DataFrame:
@@ -93,8 +91,8 @@ class CorVSPredictDataset(data.Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.LongTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor]:
         return (
             self.time[self.map[idx][0]][self.map[idx][1]],
-            preprocess.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len, True).squeeze(dim=0),
-            preprocess.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len, True).squeeze(dim=0),
+            preprocess.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+            preprocess.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
             torch.arange(self.win_len, dtype=torch.int32) < self.map[idx][2]
         )
 
