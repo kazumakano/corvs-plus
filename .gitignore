@@ -2,3 +2,4 @@
 configs/
 corvs/__pycache__/
 dataset/
+runs/
