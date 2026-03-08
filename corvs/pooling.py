@@ -11,14 +11,14 @@ class MaskedGlobalAttnPool1d(nn.Module):
         if d_model % nhead != 0:
             raise ValueError("dimension must be divisible by number of heads")
 
-        self.d_head, self.nhead = d_model // nhead, nhead
-        self.proj = nn.Linear(d_model, nhead)
+        self.nhead = nhead
+        self.proj = nn.Linear(d_model, self.nhead)
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
         score: torch.FloatTensor = self.proj(input.transpose(-2, -1))
         weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)
         weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
-        input = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead, dh=self.d_head)
+        input = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead)
         output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
         return output
 
