@@ -6,6 +6,7 @@ import torch
 from numpy import linalg
 from numpy.typing import ArrayLike, NDArray
 from pandas.core.groupby import DataFrameGroupBy
+from scipy.interpolate import interp1d
 from torch.nn import functional as F
 from torch.nn.utils import rnn
 
@@ -45,7 +46,7 @@ def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
     freq = args[-1]
 
     time = np.arange(max(t[0] for t in time_list), min(t[-1] for t in time_list), step=1 / freq, dtype=np.float64)
-    val_list = [np.interp(time, t, v) for t, v in zip(time_list, val_list)]
+    val_list = [interp1d(t, v, axis=0, copy=False, assume_sorted=True)(time) for t, v in zip(time_list, val_list)]
 
     return time, *val_list
 

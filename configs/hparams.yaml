@@ -27,3 +27,4 @@ batch_size: 128
 max_step: 100000
 val_step: 1000
 warm_step: 5000
+num_workers: 4

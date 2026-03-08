@@ -1,7 +1,7 @@
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 import numpy as np
 import pandas as pd
 import torch
@@ -24,8 +24,20 @@ class CorVSDataModule(L.LightningDataModule):
     ...
 
 class CorVSPredictDataset(data.Dataset):
-    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | datetime] = None, stop: Optional[float | datetime] = None) -> None:
-        self.win_len, self.win_stride = hparams["win_len"], hparams["win_stride"]
+    def __init__(
+            self,
+            path: PathLike,
+            traj_track_id: int,
+            sensor_worker_id: int,
+            freq: float,
+            smooth_sd: float,
+            min_input_len: int,
+            win_len: int,
+            win_stride: int,
+            start: Optional[float | datetime] = None,
+            stop: Optional[float | datetime] = None
+        ) -> None:
+        self.win_len, self.win_stride = win_len, win_stride
 
         if isinstance(start, datetime):
             start = start.timestamp()
@@ -39,18 +51,18 @@ class CorVSPredictDataset(data.Dataset):
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         self.map: list[tuple[int, int, int]] = []
-        if len(sensor_data) / SENSOR_FREQ > hparams["min_input_len"] / hparams["freq"]:
-            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), hparams["smooth_sd"] * SENSOR_FREQ, axis=0)
+        if len(sensor_data) / SENSOR_FREQ > min_input_len / freq:
+            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_sd * SENSOR_FREQ, axis=0)
 
             for i, td in preprocess.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td.iloc[0]["time"], td.iloc[-1]["time"], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                if (len(traj_time) - 2) / TRAJ_FREQ > hparams["min_input_len"] / hparams["freq"]:
+                if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, assume_sorted=True)(traj_time)
-                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), hparams["smooth_sd"] * TRAJ_FREQ)
-                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), hparams["smooth_sd"] * TRAJ_FREQ)
+                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_sd * TRAJ_FREQ)
+                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth_sd * TRAJ_FREQ)
 
-                    time, spd, ang_vel, meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, hparams["freq"])
+                    time, spd, ang_vel, meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, freq)
                     self.traj_feat.append(torch.from_numpy(np.column_stack((spd.astype(np.float32), ang_vel.astype(np.float32)))))
                     self.sensor_feat.append(torch.from_numpy(meas.astype(np.float32)))
 
@@ -98,3 +110,32 @@ class CorVSPredictDataset(data.Dataset):
 
     def __len__(self) -> int:
         return len(self.map)
+
+class CorVSPredictDataModule(L.LightningDataModule):
+    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | datetime] = None, stop: Optional[float | datetime] = None) -> None:
+        super().__init__()
+        self.save_hyperparameters(hparams)
+        self.datasets = {}
+        self.root_path = path
+        self.traj_track_id, self.sensor_worker_id = traj_track_id, sensor_worker_id
+        self.start, self.stop = start, stop
+
+    def setup(self, stage: Literal["fit", "validate", "test", "predict"]) -> None:
+        match stage:
+            case "predict":
+                if "pred" not in self.datasets.keys():
+                    self.datasets["pred"] = CorVSPredictDataset(
+                        self.root_path,
+                        self.traj_track_id,
+                        self.sensor_worker_id,
+                        self.hparams["freq"],
+                        self.hparams["smooth_sd"],
+                        self.hparams["min_input_len"],
+                        self.hparams["win_len"],
+                        self.hparams["win_stride"],
+                        self.start,
+                        self.stop
+                    )
+
+    def predict_dataloader(self) -> data.DataLoader:
+        return data.DataLoader(self.datasets["pred"], num_workers=self.hparams["num_workers"], pin_memory=True, persistent_workers=True)

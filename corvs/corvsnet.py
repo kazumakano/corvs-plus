@@ -134,3 +134,6 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         output = 1 / (1 + torch.min(self.bn.running_var[0] / spd_var, self.bn.running_var[2] / linacc_var)).unsqueeze(1)
 
         return output
+
+    def predict_step(self, batch: list[torch.Tensor], _: int) -> tuple[torch.FloatTensor, torch.FloatTensor]:
+        return self(batch[1], batch[2], batch[3])
