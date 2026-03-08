@@ -10,7 +10,7 @@ from torch.nn import functional as F
 from torch.nn.utils import rnn
 
 
-def seg_by_timeout(data: pd.DataFrame, timeout_in_sec: float) -> DataFrameGroupBy[int, Literal[True]]:
+def seg_by_timeout(data: pd.DataFrame, timeout_in_sec: float) -> DataFrameGroupBy:
     return data.groupby(by=(data["time"].diff() > timeout_in_sec).cumsum(), sort=False)
 
 def loc_to_spd(loc: ArrayLike, freq_in_hz: float, resol_per_px: float) -> NDArray:
@@ -19,7 +19,7 @@ def loc_to_spd(loc: ArrayLike, freq_in_hz: float, resol_per_px: float) -> NDArra
     spd = freq_in_hz * dist
     return spd
 
-FloatingT = TypeVar("FloatingT", np.floating)
+FloatingT = TypeVar("FloatingT", bound=np.floating)
 
 def to_convex(ang: NDArray[FloatingT]) -> NDArray[FloatingT]:
     return (ang + math.pi) % (2 * math.pi) - math.pi
@@ -49,7 +49,7 @@ def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
 
     return time, *val_list
 
-def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool = False, pad_val: float = 0) -> torch.Tensor:
+def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool = False, pad_val: float = 0, pad_side: Literal["left", "right"] = "right") -> torch.Tensor:
     """
     Pad or truncate variable length sequences to a uniform length.
 
@@ -64,6 +64,8 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool
         Place batch dimension to first or not.
     pad_val : float
         Padding value.
+    pad_side : 'left' | 'right'
+        Padding side.
 
     Returns
     -------
@@ -72,8 +74,17 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool
         Shape is (batch, time, ...) if batch first, (time, batch, ...) otherwise.
     """
 
-    seqs = rnn.pad_sequence(seqs, batch_first=batch_first, padding_value=pad_val)
-    if batch_first:
-        return F.pad(seqs, (0, seq_len - seqs.shape[1], *[0 for _ in range(seqs.ndim - 2)]), value=pad_val)
-    else:
-        return F.pad(seqs, (seq_len - len(seqs.shape), *[0 for _ in range(seqs.ndim - 1)]), value=pad_val)
+    seqs = rnn.pad_sequence(seqs, batch_first=batch_first, padding_value=pad_val, padding_side=pad_side)
+    pad = 2 * seqs.ndim * [0]
+    match pad_side:
+        case "left":
+            if batch_first:
+                pad[-4] = seq_len - seqs.shape[1]
+            else:
+                pad[-2] = seq_len - len(seqs)
+        case "right":
+            if batch_first:
+                pad[-3] = seq_len - seqs.shape[1]
+            else:
+                pad[-1] = seq_len - len(seqs)
+    return F.pad(seqs, pad, value=pad_val)
