@@ -49,7 +49,7 @@ def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
 
     return time, *val_list
 
-def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool = False, pad_val: float = 0, pad_side: Literal["left", "right"] = "right") -> torch.Tensor:
+def pad(seqs: torch.Tensor | list[torch.Tensor], tgt_len: int, batch_first: bool = False, pad_val: float = 0, pad_side: Literal["left", "right"] = "right") -> torch.Tensor:
     """
     Pad or truncate variable length sequences to a uniform length.
 
@@ -58,10 +58,10 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool
     seqs : Tensor | list[Tensor]
         List of sequences.
         Shape is (batch, sequence, ...).
-    seq_len : int
+    tgt_len : int
         Target sequence length.
     batch_first : bool
-        Place batch dimension to first or not.
+        Put batch dimension first or not.
     pad_val : float
         Padding value.
     pad_side : 'left' | 'right'
@@ -79,12 +79,12 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], seq_len: int, batch_first: bool
     match pad_side:
         case "left":
             if batch_first:
-                pad[-4] = seq_len - seqs.shape[1]
+                pad[-4] = tgt_len - seqs.shape[1]
             else:
-                pad[-2] = seq_len - len(seqs)
+                pad[-2] = tgt_len - len(seqs)
         case "right":
             if batch_first:
-                pad[-3] = seq_len - seqs.shape[1]
+                pad[-3] = tgt_len - seqs.shape[1]
             else:
-                pad[-1] = seq_len - len(seqs)
+                pad[-1] = tgt_len - len(seqs)
     return F.pad(seqs, pad, value=pad_val)
