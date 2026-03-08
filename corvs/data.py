@@ -20,9 +20,13 @@ class CorVSPredictDataset(data.Dataset):
         if isinstance(stop, datetime):
             stop = stop.timestamp()
 
-        # load trajectory data
+        traj_data = self._load_traj_data(Path(path) / "trajectory", traj_track_id, start, stop)
+        sensor_data = self._load_sensor_data(Path(path) / "sensor", sensor_worker_id, start, stop)
+
+    @staticmethod
+    def _load_traj_data(path: Path, traj_track_id: int, start: float | None, stop: float | None) -> pd.DataFrame:
         traj_data_list = []
-        for f in sorted((Path(path) / "trajectory").glob("trajectory_????????_??_??.csv")):
+        for f in sorted(path.glob("trajectory_????????_??_??.csv")):
             traj_data_list.append(pd.read_csv(f, usecols=("time", "track", "x", "y")))
         traj_data = pd.concat(traj_data_list, ignore_index=True)
         traj_data = traj_data[traj_data["track"] == traj_track_id]
@@ -31,9 +35,12 @@ class CorVSPredictDataset(data.Dataset):
         if stop is not None:
             traj_data = traj_data[traj_data["time"] < stop]
 
-        # load sensor data
+        return traj_data
+
+    @staticmethod
+    def _load_sensor_data(path: Path, sensor_worker_id: int, start: float | None, stop: float | None) -> pd.DataFrame:
         sensor_data_list = []
-        for f in sorted((Path(path) / "sensor").glob(f"sensor_????????_??_??_{sensor_worker_id:02d}_??.csv")):
+        for f in sorted(path.glob(f"sensor_????????_??_??_{sensor_worker_id:02d}_??.csv")):
             sensor_data_list.append(pd.read_csv(f, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z")))
         sensor_data = pd.concat(sensor_data_list, ignore_index=True)
         if start is not None:
