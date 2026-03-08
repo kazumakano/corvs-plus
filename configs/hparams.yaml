@@ -1,6 +1,6 @@
 # data
 freq: 10
-smooth_sd: 0.2
+smooth: 0.2
 min_input_len: 21
 win_len: 600
 win_stride: 10

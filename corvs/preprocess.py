@@ -88,4 +88,5 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], tgt_len: int, batch_first: bool
                 pad[-3] = tgt_len - seqs.shape[1]
             else:
                 pad[-1] = tgt_len - len(seqs)
-    return F.pad(seqs, pad, value=pad_val)
+    seqs = F.pad(seqs, pad, value=pad_val)
+    return seqs

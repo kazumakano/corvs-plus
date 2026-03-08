@@ -30,7 +30,7 @@ class CorVSPredictDataset(data.Dataset):
             traj_track_id: int,
             sensor_worker_id: int,
             freq: float,
-            smooth_sd: float,
+            smooth: float,
             min_input_len: int,
             win_len: int,
             win_stride: int,
@@ -47,30 +47,30 @@ class CorVSPredictDataset(data.Dataset):
         traj_data = self._load_traj_data(Path(path) / "trajectory", traj_track_id, start, stop)
         sensor_data = self._load_sensor_data(Path(path) / "sensor", sensor_worker_id, start, stop)
 
-        self.time: list[torch.LongTensor] = []
+        self.time: list[torch.DoubleTensor] = []
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         self.map: list[tuple[int, int, int]] = []
         if len(sensor_data) / SENSOR_FREQ > min_input_len / freq:
-            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_sd * SENSOR_FREQ, axis=0)
+            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth * SENSOR_FREQ, axis=0)
 
             for i, td in preprocess.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td.iloc[0]["time"], td.iloc[-1]["time"], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                 if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, assume_sorted=True)(traj_time)
-                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_sd * TRAJ_FREQ)
-                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth_sd * TRAJ_FREQ)
+                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth * TRAJ_FREQ)
+                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth * TRAJ_FREQ)
 
-                    time, spd, ang_vel, meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, freq)
-                    self.traj_feat.append(torch.from_numpy(np.column_stack((spd.astype(np.float32), ang_vel.astype(np.float32)))))
-                    self.sensor_feat.append(torch.from_numpy(meas.astype(np.float32)))
+                    synced_time, synced_spd, synced_ang_vel, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, freq)
+                    self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_ang_vel.astype(np.float32)))))
+                    self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
-                    valid_len = min(self.win_len, len(time))
-                    win_num = max(1, (len(time) - self.win_len) // self.win_stride + 1)
+                    valid_len = min(self.win_len, len(synced_time))
+                    win_num = max(1, (len(synced_time) - self.win_len) // self.win_stride + 1)
                     self.time.append(torch.empty(win_num, dtype=torch.float64))
                     for j in range(win_num):
-                        self.time[-1][j] = time[j * self.win_stride]
+                        self.time[-1][j] = synced_time[j * self.win_stride]
                         self.map.append((i, j, valid_len))
 
     @staticmethod
@@ -100,7 +100,7 @@ class CorVSPredictDataset(data.Dataset):
 
         return sensor_data
 
-    def __getitem__(self, idx: int) -> tuple[torch.LongTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor]:
         return (
             self.time[self.map[idx][0]][self.map[idx][1]],
             preprocess.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
@@ -129,7 +129,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
                         self.traj_track_id,
                         self.sensor_worker_id,
                         self.hparams["freq"],
-                        self.hparams["smooth_sd"],
+                        self.hparams["smooth"],
                         self.hparams["min_input_len"],
                         self.hparams["win_len"],
                         self.hparams["win_stride"],
@@ -138,4 +138,4 @@ class CorVSPredictDataModule(L.LightningDataModule):
                     )
 
     def predict_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["pred"], num_workers=self.hparams["num_workers"], pin_memory=True, persistent_workers=True)
+        return data.DataLoader(self.datasets["pred"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
