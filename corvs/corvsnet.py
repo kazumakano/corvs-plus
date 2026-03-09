@@ -136,4 +136,6 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         return output
 
     def predict_step(self, batch: list[torch.Tensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor]:
-        return batch[0].unsqueeze(1), *self(batch[1], batch[2], batch[3])
+        time = batch[0]
+        prob, rel = self(batch[1], batch[2], batch[3])
+        return time, prob, rel

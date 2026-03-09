@@ -109,7 +109,7 @@ class CorVSPredictDataset(data.Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor]:
         return (
-            self.time[self.map[idx][0]][self.map[idx][1]],
+            self.time[self.map[idx][0]][self.map[idx][1]].unsqueeze(0),
             preprocess.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
             preprocess.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
             torch.arange(self.win_len, dtype=torch.int32) < self.map[idx][2]

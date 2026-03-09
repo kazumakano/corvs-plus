@@ -25,9 +25,8 @@ def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj
     result = trainer.predict(model, datamodule=datamodule)
 
     if result is not None:
-        prob = torch.cat([r[1] for r in result], dim=0)
-        rel = torch.cat([r[2] for r in result], dim=0)
-
+        prob = torch.cat([r[1] for r in result])
+        rel = torch.cat([r[2] for r in result])
         show_summary(traj_track_id, sensor_worker_id, datamodule.datasets["pred"], prob, rel)
 
 if __name__ == "__main__":
