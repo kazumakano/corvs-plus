@@ -39,8 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--weight_path", default="dataset/model.safetensors", help="path to model weight file")
     parser.add_argument("-t", "--traj_track_id", type=int, required=True, help="track ID of trajectory", metavar="TRACK_ID")
     parser.add_argument("-s", "--sensor_worker_id", type=int, required=True, help="worker ID of sensor measurements", metavar="WORKER_ID")
-    parser.add_argument("--from", help="start datetime in JST", metavar="YYYY-MM-DD HH:MM:SS", dest="from_")
-    parser.add_argument("--to", help="end datetime in JST", metavar="YYYY-MM-DD HH:MM:SS")
+    parser.add_argument("--from", help="start datetime", metavar="YYYY-MM-DD HH:MM:SS", dest="from_")
+    parser.add_argument("--to", help="end datetime", metavar="YYYY-MM-DD HH:MM:SS")
     args = parser.parse_args()
 
     infer(args.data_path, args.param_path, args.weight_path, args.traj_track_id, args.sensor_worker_id, args.from_, args.to)
