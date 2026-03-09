@@ -18,9 +18,9 @@ Coming soon.
 ## Pre-trained models
 Coming soon.
 
-| Ver | # of params | FLOPs @ 1-min | Test PF | Weight | Hyperparam | Note                |
-| --- | ----------- | ------------- | ------- | ------ | ---------- | ------------------- |
-| 1   | 106k        | 378M          | 0.761   |        |            | Best model in paper |
+| Ver | # of Params | FLOPs @ 1-min | Test PF | Weights | Hyperparams | Note                |
+| --- | ----------- | ------------- | ------- | ------- | ----------- | ------------------- |
+| 1   | 106k        | 378M          | 0.761   |         |             | Best model in paper |
 
 ## Demo
 Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
@@ -44,8 +44,6 @@ python infer.py \
 | `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  |                             | Yes      |
 | `--from`                  | Start datetime in Japan Standard Time | str  |                             | No       |
 | `--to`                    | End datetime in Japan Standard Time   | str  |                             | No       |
-
-## Citation
 
 ## Contact
 Kazuma Kano \
