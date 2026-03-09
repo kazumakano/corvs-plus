@@ -20,6 +20,7 @@ dependencies = [
     "numpy>=2.4.2",
     "omegaconf>=2.3.0",
     "pandas>=3.0.1",
+    "python-dateutil>=2.9.0.post0",
     "pytorch_optimizer>=3.10.0",
     "safetensors>=0.7.0",
     "scipy>=1.17.1",

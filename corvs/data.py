@@ -11,7 +11,7 @@ from omegaconf import DictConfig
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.utils import data
-from corvs import preprocess
+from corvs import preprocess, utils
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
@@ -34,14 +34,18 @@ class CorVSPredictDataset(data.Dataset):
             min_input_len: int,
             win_len: int,
             win_stride: int,
-            start: Optional[float | datetime] = None,
-            stop: Optional[float | datetime] = None
+            start: Optional[float | str| datetime] = None,
+            stop: Optional[float | str | datetime] = None
         ) -> None:
         self.freq = freq
         self.win_len, self.win_stride = win_len, win_stride
 
+        if isinstance(start, str):
+            start = utils.str_to_datetime(start, utils.jst)
         if isinstance(start, datetime):
             start = start.timestamp()
+        if isinstance(stop, str):
+            stop = utils.str_to_datetime(stop, utils.jst)
         if isinstance(stop, datetime):
             stop = stop.timestamp()
 
@@ -126,7 +130,7 @@ class CorVSPredictDataset(data.Dataset):
         return time_len
 
 class CorVSPredictDataModule(L.LightningDataModule):
-    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | datetime] = None, stop: Optional[float | datetime] = None) -> None:
+    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
         self.datasets = {}

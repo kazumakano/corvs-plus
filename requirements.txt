@@ -207,7 +207,9 @@ pycryptodomex==3.23.0
 pygments==2.19.2
     # via rich
 python-dateutil==2.9.0.post0
-    # via pandas
+    # via
+    #   corvs
+    #   pandas
 pytorch-lightning==2.6.1
     # via lightning
 pytorch-optimizer==3.10.0
