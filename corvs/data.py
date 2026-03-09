@@ -58,7 +58,7 @@ class CorVSPredictDataset(data.Dataset):
                 traj_time = np.arange(td.iloc[0]["time"], td.iloc[-1]["time"], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                 if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / freq:
-                    loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, assume_sorted=True)(traj_time)
+                    loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                     spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth * TRAJ_FREQ)
                     ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth * TRAJ_FREQ)
 
@@ -78,7 +78,10 @@ class CorVSPredictDataset(data.Dataset):
         traj_data_list = []
         for f in sorted(path.glob("trajectory_????????_??_??.csv")):
             traj_data_list.append(pd.read_csv(f, usecols=("time", "track", "x", "y")))
-        traj_data = pd.concat(traj_data_list, ignore_index=True)
+        if len(traj_data_list) > 0:
+            traj_data = pd.concat(traj_data_list, ignore_index=True)
+        else:
+            traj_data = pd.DataFrame(columns=("time", "track", "x", "y"))
         traj_data = traj_data[traj_data["track"] == traj_track_id]
         if start is not None:
             traj_data = traj_data[traj_data["time"] >= start]
@@ -92,7 +95,10 @@ class CorVSPredictDataset(data.Dataset):
         sensor_data_list = []
         for f in sorted(path.glob(f"sensor_????????_??_??_{sensor_worker_id:02d}_??.csv")):
             sensor_data_list.append(pd.read_csv(f, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z")))
-        sensor_data = pd.concat(sensor_data_list, ignore_index=True)
+        if len(sensor_data_list) > 0:
+            sensor_data = pd.concat(sensor_data_list, ignore_index=True)
+        else:
+            sensor_data = pd.DataFrame(columns=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"))
         if start is not None:
             sensor_data = sensor_data[sensor_data["time"] >= start]
         if stop is not None:
@@ -110,6 +116,13 @@ class CorVSPredictDataset(data.Dataset):
 
     def __len__(self) -> int:
         return len(self.map)
+
+    @property
+    def time_len(self) -> float:
+        time_len = 0
+        for t, f in zip(self.time, self.traj_feat):
+            time_len += len(f) / len(t) * (t[-1] - t[0]).item()
+        return time_len
 
 class CorVSPredictDataModule(L.LightningDataModule):
     def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | datetime] = None, stop: Optional[float | datetime] = None) -> None:
@@ -132,7 +145,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
                         self.hparams["smooth"],
                         self.hparams["min_input_len"],
                         self.hparams["win_len"],
-                        self.hparams["win_stride"],
+                        1,
                         self.start,
                         self.stop
                     )

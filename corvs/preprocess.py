@@ -48,7 +48,7 @@ def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
     freq = args[-1]
 
     time = np.arange(max(t[0] for t in time_list), min(t[-1] for t in time_list), step=1 / freq, dtype=np.float64)
-    val_list = [interp1d(t, v, axis=0, copy=False, assume_sorted=True)(time) for t, v in zip(time_list, val_list)]
+    val_list = [interp1d(t, v, axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(time) for t, v in zip(time_list, val_list)]
 
     return time, *val_list
 
