@@ -194,10 +194,14 @@ dependencies = [
     { name = "pytorch-optimizer" },
     { name = "safetensors" },
     { name = "scipy" },
-    { name = "tensorboard" },
     { name = "torch" },
     { name = "torchao" },
     { name = "torchtune" },
+]
+
+[package.optional-dependencies]
+train = [
+    { name = "tensorboard" },
 ]
 
 [package.metadata]
@@ -212,11 +216,12 @@ requires-dist = [
     { name = "pytorch-optimizer", specifier = ">=3.10.0" },
     { name = "safetensors", specifier = ">=0.7.0" },
     { name = "scipy", specifier = ">=1.17.1" },
-    { name = "tensorboard", specifier = ">=2.20.0" },
+    { name = "tensorboard", marker = "extra == 'train'", specifier = ">=2.20.0" },
     { name = "torch", specifier = "==2.9.1" },
     { name = "torchao", specifier = "==0.15.0" },
     { name = "torchtune", specifier = ">=0.6.1" },
 ]
+provides-extras = ["train"]
 
 [[package]]
 name = "datasets"
