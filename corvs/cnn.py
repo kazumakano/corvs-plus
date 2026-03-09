@@ -44,6 +44,9 @@ class DualCNN(nn.Module):
 
         return output
 
+    def calc_out_len(self, in_len: int) -> int:
+        return in_len - self.conv_1.kernel_size[0] - self.conv_2_l.kernel_size[0] - self.conv_3_l.kernel_size[0] + 3
+
 class SeparableConv1d(nn.Module):
     def __init__(
             self,
@@ -78,3 +81,6 @@ class SeparableDualCNN(DualCNN):
         self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
         self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
         self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
+
+    def calc_out_len(self, in_len: int) -> int:
+        return in_len - self.conv_1.kernel_size[0] - self.conv_2_l.d.kernel_size[0] - self.conv_3_l.d.kernel_size[0] + 3

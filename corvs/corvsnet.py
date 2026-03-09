@@ -16,8 +16,6 @@ class CorVSNet(BaseModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
         super().__init__(hparams)
 
-        if self.hparams["min_input_len"] < 5 * self.hparams["cnn_ks_s"] - 4:
-            raise ValueError("input cannot be shorter than receptive field of CNN backbone")
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
@@ -27,7 +25,10 @@ class CorVSNet(BaseModule):
         else:
             self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
-        xformer_time_len = self.hparams["win_len"] - 5 * self.hparams["cnn_ks_s"] + 5
+        if self.cnn.calc_out_len(self.hparams["min_input_len"]) < 1:
+            raise ValueError("input cannot be shorter than receptive field of CNN backbone")
+
+        xformer_time_len = self.cnn.calc_out_len(self.hparams["win_len"])
         if self.hparams["cls_tok"]:
             self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
