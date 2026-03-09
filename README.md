@@ -42,8 +42,8 @@ python infer.py \
 | `-w` `--weight_path`      | Path to model weight file             | str  | Yes      | `dataset/model.safetensors` |
 | `-t` `--traj_track_id`    | Track ID of trajectory                | int  | Yes      |                             |
 | `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  | Yes      |                             |
-| `--from`                  | Start datetime in Japan Standard Time | str  | No       |                             |
-| `--to`                    | End datetime in Japan Standard Time   | str  | No       |                             |
+| `--from`                  | Start datetime in Japan Standard Time | str  |          |                             |
+| `--to`                    | End datetime in Japan Standard Time   | str  |          |                             |
 
 ## Contact
 Kazuma Kano \
