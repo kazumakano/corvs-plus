@@ -24,14 +24,18 @@ Install the `corvs` package and its dependencies.
 pip install -e ./
 ```
 
-## Pre-trained model
+## Model Zoo
 Coming soon.
+
+| Version | Test PF | Weight | Hyperparameter | Note                |
+| ------- | ------- | ------ | -------------- | ------------------- |
+| 1       | 0.761   |        |                | Best model in paper |
 
 ## Dataset
 Coming soon.
 
-## Inference demo
-Infer correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
+## Demo
+Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
 ```sh
 python infer.py \
     -d dataset/ \
