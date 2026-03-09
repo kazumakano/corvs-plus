@@ -1,5 +1,6 @@
 import math
 from typing import Any, Callable, Optional
+import einops
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -187,8 +188,12 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             v = static_v
 
         # apply RoPE
-        q = self(q.view(bsz, num_heads, tgt_len, head_dim).transpose(1, 2)).transpose(1, 2).contiguous().view(bsz * num_heads, tgt_len, head_dim)
-        k = self(k.view(bsz, num_heads, src_len, head_dim).transpose(1, 2)).transpose(1, 2).contiguous().view(bsz * num_heads, src_len, head_dim)
+        q = einops.rearrange(q, "(b nh) t hd -> b t nh hd", b=bsz, nh=num_heads)
+        q = self(q)
+        q = einops.rearrange(q, "b t nh hd -> (b nh) t hd")
+        k = einops.rearrange(k, "(b nh) t hd -> b t nh hd", b=bsz, nh=num_heads)
+        k = self(k)
+        k = einops.rearrange(k, "b t nh hd -> (b nh) t hd")
 
         if add_zero_attn:
             zero_attn_shape = bsz * num_heads, 1, head_dim
