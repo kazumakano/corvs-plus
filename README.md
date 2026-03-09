@@ -1,4 +1,6 @@
 # CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses
+<img width="4196" height="2197" alt="Identification process of CorVS+" src="https://github.com/user-attachments/assets/28dde879-fb69-49ba-9de1-fc9f5cc17be7" />
+
 ## Abstract
 Logistics warehouses have struggled with labor shortages, but the inbound processes remain particularly human-powered.
 Worker location data is a key to higher productivity in such cases.
