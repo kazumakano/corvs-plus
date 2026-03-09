@@ -14,3 +14,46 @@ We developed a dataset comprising 27 hours of sensor measurements and 38 km of t
 This dataset covers actual activities and challenging situations, such as multiple stationary workers inspecting items.
 The evaluation indicated the superiority of CorVS+ over existing methods and the effectiveness of its unique designs for industrial-scale settings.
 The model and dataset will be available at [https://doi.org/10.5281/zenodo.17745683](https://doi.org/10.5281/zenodo.17745683).
+
+## Requirements
+- Python 3.11
+
+## Installation
+Install the `corvs` package and its dependencies.
+```sh
+pip install -e ./
+```
+
+## Pre-trained model
+Coming soon.
+
+## Dataset
+Coming soon.
+
+## Inference demo
+Infer correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
+```sh
+python infer.py \
+    -d dataset/ \
+    -p configs/hparams.yaml \
+    -w dataset/model.safetensors \
+    -t 216 \
+    -s 37 \
+    --from '2024-10-03 11:30:00' \
+    --to '2024-10-03 12:00:00'
+```
+
+| Argument                  | Description                           | Type | Default                     | Required |
+| ------------------------- | ------------------------------------- | ---- | --------------------------- | -------- |
+| `-d` `--date_path`        | Path to dataset root directory        | str  | `dataset/`                  | Yes      |
+| `-p` `--param_path`       | Path to hyperparameter file           | str  | `configs/hparams.yaml`      | Yes      |
+| `-w` `--weight_path`      | Path to model weight file             | str  | `dataset/model.safetensors` | Yes      |
+| `-t` `--traj_track_id`    | Track ID of trajectory                | int  |                             | Yes      |
+| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  |                             | Yes      |
+| `--from`                  | Start datetime in Japan Standard Time | str  |                             | No       |
+| `--to`                    | End datetime in Japan Standard Time   | str  |                             | No       |
+
+## Contact
+Kazuma Kano \
+Graduate School of Engineering, Nagoya University \
+Email: [kazuma@ucl.nuee.nagoya-u.ac.jp](mailto:kazuma@ucl.nuee.nagoya-u.ac.jp)
