@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data_path", default="dataset/", help="path to dataset root directory")
     parser.add_argument("-p", "--param_path", default="configs/hparams.yaml", help="path to hyperparameter file")
-    parser.add_argument("-w", "--weight_path", default="dataset/model.safetensors", help="path to pre-trained weight file")
+    parser.add_argument("-w", "--weight_path", default="dataset/model.safetensors", help="path to model weight file")
     parser.add_argument("-t", "--traj_track_id", type=int, required=True, help="trajectory track ID")
     parser.add_argument("-s", "--sensor_worker_id", type=int, required=True, help="sensor worker ID")
     args = parser.parse_args()
