@@ -60,7 +60,7 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], tgt_len: int, batch_first: bool
     ----------
     seqs : Tensor | list[Tensor]
         List of sequences.
-        Shape is (batch, sequence, ...).
+        Shape is (batch, seq, ...).
     tgt_len : int
         Target sequence length.
     batch_first : bool
