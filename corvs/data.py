@@ -37,6 +37,7 @@ class CorVSPredictDataset(data.Dataset):
             start: Optional[float | datetime] = None,
             stop: Optional[float | datetime] = None
         ) -> None:
+        self.freq = freq
         self.win_len, self.win_stride = win_len, win_stride
 
         if isinstance(start, datetime):
@@ -51,18 +52,18 @@ class CorVSPredictDataset(data.Dataset):
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         self.map: list[tuple[int, int, int]] = []
-        if len(sensor_data) / SENSOR_FREQ > min_input_len / freq:
+        if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
             meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth * SENSOR_FREQ, axis=0)
 
             for i, td in preprocess.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td.iloc[0]["time"], td.iloc[-1]["time"], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / freq:
+                if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                     spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth * TRAJ_FREQ)
                     ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth * TRAJ_FREQ)
 
-                    synced_time, synced_spd, synced_ang_vel, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, freq)
+                    synced_time, synced_spd, synced_ang_vel, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, self.freq)
                     self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_ang_vel.astype(np.float32)))))
                     self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
@@ -120,8 +121,8 @@ class CorVSPredictDataset(data.Dataset):
     @property
     def time_len(self) -> float:
         time_len = 0
-        for t, f in zip(self.time, self.traj_feat):
-            time_len += len(f) / len(t) * (t[-1] - t[0]).item()
+        for f in self.traj_feat:
+            time_len += len(f) / self.freq
         return time_len
 
 class CorVSPredictDataModule(L.LightningDataModule):
