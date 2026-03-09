@@ -6,13 +6,13 @@ from corvs.normalization import MaskedBatchNorm1d
 
 
 class DualCNN(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int, act_func: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         super().__init__()
 
         if out_ch % 2 != 0:
             raise ValueError("number of out channels must be even")
 
-        self.act_func = act_func
+        self.act = act
         half_out_ch = out_ch // 2
 
         self.conv_1 = nn.Conv1d(in_ch, half_out_ch, ks_s, bias=False)
@@ -28,15 +28,15 @@ class DualCNN(nn.Module):
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
         hidden: torch.FloatTensor = self.conv_1(input)
-        hidden = self.act_func(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
+        hidden = self.act(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
         hidden_s: torch.FloatTensor = self.conv_2_s(hidden)
-        hidden_s = self.act_func(self.bn_2_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
+        hidden_s = self.act(self.bn_2_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
         hidden_s = self.conv_3_s(hidden_s)
-        hidden_s = self.act_func(self.bn_3_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
+        hidden_s = self.act(self.bn_3_s(hidden_s, valid_mask[:, -hidden_s.shape[2]:]))
         hidden_l: torch.FloatTensor = self.conv_2_l(hidden)
-        hidden_l = self.act_func(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
+        hidden_l = self.act(self.bn_2_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
         hidden_l = self.conv_3_l(hidden_l)
-        hidden_l = self.act_func(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
+        hidden_l = self.act(self.bn_3_l(hidden_l, valid_mask[:, -hidden_l.shape[2]:]))
 
         head_len = (hidden_s.shape[2] - hidden_l.shape[2]) // 2
         tail_len = hidden_s.shape[2] - hidden_l.shape[2] - head_len
@@ -72,8 +72,8 @@ class SeparableConv1d(nn.Module):
         return output
 
 class SeparableDualCNN(DualCNN):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act_func: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
-        super().__init__(in_ch, out_ch, ks_s, act_func)
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+        super().__init__(in_ch, out_ch, ks_s, act)
 
         half_out_ch = out_ch // 2
 
