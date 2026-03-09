@@ -35,15 +35,15 @@ python infer.py \
     --to '2024-10-03 12:00:00'
 ```
 
-| Argument                  | Description                           | Type | Default                     | Required |
-| ------------------------- | ------------------------------------- | ---- | --------------------------- | -------- |
-| `-d` `--date_path`        | Path to dataset root directory        | str  | `dataset/`                  | Yes      |
-| `-p` `--param_path`       | Path to hyperparameter file           | str  | `configs/hparams.yaml`      | Yes      |
-| `-w` `--weight_path`      | Path to model weight file             | str  | `dataset/model.safetensors` | Yes      |
-| `-t` `--traj_track_id`    | Track ID of trajectory                | int  |                             | Yes      |
-| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  |                             | Yes      |
-| `--from`                  | Start datetime in Japan Standard Time | str  |                             | No       |
-| `--to`                    | End datetime in Japan Standard Time   | str  |                             | No       |
+| Argument                  | Description                           | Type | Required | Default                     |
+| ------------------------- | ------------------------------------- | ---- | -------- | --------------------------- |
+| `-d` `--date_path`        | Path to dataset root directory        | str  | Yes      | `dataset/`                  |
+| `-p` `--param_path`       | Path to hyperparameter file           | str  | Yes      | `configs/hparams.yaml`      |
+| `-w` `--weight_path`      | Path to model weight file             | str  | Yes      | `dataset/model.safetensors` |
+| `-t` `--traj_track_id`    | Track ID of trajectory                | int  | Yes      |                             |
+| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  | Yes      |                             |
+| `--from`                  | Start datetime in Japan Standard Time | str  | No       |                             |
+| `--to`                    | End datetime in Japan Standard Time   | str  | No       |                             |
 
 ## Contact
 Kazuma Kano \
