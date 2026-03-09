@@ -37,7 +37,7 @@ python infer.py \
 
 | Argument                  | Description                           | Type | Required | Default                     |
 | ------------------------- | ------------------------------------- | ---- | -------- | --------------------------- |
-| `-d` `--date_path`        | Path to dataset root directory        | str  | Yes      | `dataset/`                  |
+| `-d` `--data_path`        | Path to dataset root directory        | str  | Yes      | `dataset/`                  |
 | `-p` `--param_path`       | Path to hyperparameter file           | str  | Yes      | `configs/hparams.yaml`      |
 | `-w` `--weight_path`      | Path to model weight file             | str  | Yes      | `dataset/model.safetensors` |
 | `-t` `--traj_track_id`    | Track ID of trajectory                | int  | Yes      |                             |
