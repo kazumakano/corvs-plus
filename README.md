@@ -18,7 +18,7 @@ Coming soon.
 ## Pre-trained models
 Coming soon.
 
-| Ver | # of Params | FLOPs @ 1-min | Test PF | Weights | Hyperparams | Note                |
+| Ver | # of Params | FLOPs @ W=600 | Test PF | Weights | Hyperparams | Note                |
 | --- | ----------- | ------------- | ------- | ------- | ----------- | ------------------- |
 | 1   | 106k        | 378M          | 0.761   |         |             | Best model in paper |
 
