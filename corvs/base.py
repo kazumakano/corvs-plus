@@ -6,6 +6,7 @@ from lightning import pytorch as L
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
 from safetensors import torch as safetensors
+from torch.optim import Optimizer
 from torchtune import training
 
 
@@ -14,7 +15,7 @@ class BaseModule(L.LightningModule):
         super().__init__()
         self.save_hyperparameters(hparams)
 
-    def configure_optimizers(self) -> torch.optim.Optimizer | OptimizerLRSchedulerConfig:
+    def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         match self.hparams["opt"]:
             case "adam":
                 opt = optim.Adam(self.parameters(), lr=self.hparams["lr"])
