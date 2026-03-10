@@ -7,6 +7,7 @@
 
 ## Installation
 Install the `corvs` package and its dependencies.
+
 ```sh
 git clone https://github.com/kazumakano/corvs-plus.git && cd corvs-plus/
 pip install -e ./
@@ -24,6 +25,7 @@ Coming soon.
 
 ## Demo
 Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
+
 ```sh
 python infer.py \
     -d dataset/ \
