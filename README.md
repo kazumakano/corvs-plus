@@ -28,13 +28,13 @@ Infer the correspondence probabilities and reliabilities for a specific pair of 
 
 ```sh
 python infer.py \
-    -d dataset/ \
-    -p configs/hparams.yaml \
-    -w dataset/model.safetensors \
-    -t 7 \
-    -s 3 \
-    --from '2024-10-03 11:30:00' \
-    --to '2024-10-03 12:00:00'
+  -d dataset/ \
+  -p configs/hparams.yaml \
+  -w dataset/model.safetensors \
+  -t 7 \
+  -s 3 \
+  --from '2024-10-03 11:30:00' \
+  --to '2024-10-03 12:00:00'
 ```
 
 | Argument                  | Description                           | Type | Required | Default                     |
