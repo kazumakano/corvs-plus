@@ -44,8 +44,9 @@ class DualCNN(nn.Module):
 
         return output
 
-    def calc_out_len(self, in_len: int) -> int:
-        return in_len - self.conv_1.kernel_size[0] - self.conv_2_l.kernel_size[0] - self.conv_3_l.kernel_size[0] + 3
+    @property
+    def recept_field(self) -> int:
+        return self.conv_1.kernel_size[0] + self.conv_2_l.kernel_size[0] + self.conv_3_l.kernel_size[0] - 2
 
 class SeparableConv1d(nn.Module):
     def __init__(
@@ -71,6 +72,10 @@ class SeparableConv1d(nn.Module):
         output = self.p(hidden)
         return output
 
+    @property
+    def kernel_size(self) -> tuple[int]:
+        return self.d.kernel_size
+
 class SeparableDualCNN(DualCNN):
     def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         super().__init__(in_ch, out_ch, ks_s, act)
@@ -81,6 +86,3 @@ class SeparableDualCNN(DualCNN):
         self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
         self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
         self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
-
-    def calc_out_len(self, in_len: int) -> int:
-        return in_len - self.conv_1.kernel_size[0] - self.conv_2_l.d.kernel_size[0] - self.conv_3_l.d.kernel_size[0] + 3

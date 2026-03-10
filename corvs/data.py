@@ -123,11 +123,11 @@ class CorVSPredictDataset(data.Dataset):
         return len(self.map)
 
     @property
-    def time_len(self) -> float:
-        time_len = 0
+    def total_time_in_sec(self) -> float:
+        total_time = 0
         for f in self.traj_feat:
-            time_len += len(f) / self.freq
-        return time_len
+            total_time += len(f) / self.freq
+        return total_time
 
 class CorVSPredictDataModule(L.LightningDataModule):
     def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:

@@ -25,10 +25,10 @@ class CorVSNet(BaseModule):
         else:
             self.cnn = DualCNN(9, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
-        if self.cnn.calc_out_len(self.hparams["min_input_len"]) < 1:
+        if self.hparams["min_input_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
 
-        xformer_time_len = self.cnn.calc_out_len(self.hparams["win_len"])
+        xformer_time_len = self.hparams["win_len"] - self.cnn.recept_field + 1
         if self.hparams["cls_tok"]:
             self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
