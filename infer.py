@@ -12,7 +12,7 @@ from corvs.data import CorVSPredictDataset
 
 def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredictDataset, prob: torch.FloatTensor, rel: torch.FloatTensor) -> None:
     tbl = Table("Track ID", "Worker ID", "Time (sec)", "Prob Avg", "Rel Avg")
-    tbl.add_row(str(traj_track_id), str(sensor_worker_id), str(round(dataset.total_time_in_sec)), format(prob.mean().item(), ".3f"), format(rel.mean().item(), ".3f"))
+    tbl.add_row(str(traj_track_id), str(sensor_worker_id), str(round(dataset.tot_time_in_sec)), format(prob.mean().item(), ".3f"), format(rel.mean().item(), ".3f"))
     Console().print(tbl)
 
 def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj_track_id: int, sensor_worker_id: int, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
