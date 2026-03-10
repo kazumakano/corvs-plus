@@ -4,12 +4,16 @@ smooth: 0.2
 min_input_len: 21
 win_len: 600
 win_stride: 10
+pos_factor: 4
+pos_mask: 0.25
+pos_shift: 0.25
+neg_ratio: 1024
 
 # architecture
 arch: corvsnet
 cnn_sep: false
-cnn_fn: null
 cnn_ks_s: 5
+cnn_fn: null
 cls_tok: false
 xformer_pos_enc: rope
 xformer_n_layers: 4
