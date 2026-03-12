@@ -16,7 +16,7 @@ pip install -e ./
 ## Dataset
 Coming soon.
 
-![dataset preview](https://github.com/user-attachments/assets/125b50c4-a1ea-4014-8ad5-9e843d95f585)
+![output](https://github.com/user-attachments/assets/6784a7a2-41c1-4475-b133-9b5a913e6431)
 
 ## Pre-trained models
 Coming soon.
