@@ -59,13 +59,7 @@ class CorVSNet(BaseModule):
 
     def reset_parameters(self) -> None:
         for m in self.modules():
-            if isinstance(m, CorVSNet):
-                if m.hparams["cls_tok"]:
-                    init.xavier_uniform_(m.cls_tok)
-                if m.hparams["xformer_pos_enc"] == "learnable":
-                    init.xavier_uniform_(m.pos_emb)
-
-            elif isinstance(m, nn.BatchNorm1d):
+            if isinstance(m, nn.BatchNorm1d):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Conv1d):
@@ -83,6 +77,11 @@ class CorVSNet(BaseModule):
 
             elif isinstance(m, nn.MultiheadAttention):
                 m._reset_parameters()
+
+        if self.hparams["cls_tok"]:
+            init.xavier_uniform_(self.cls_tok)
+        if self.hparams["xformer_pos_enc"] == "learnable":
+            init.xavier_uniform_(self.pos_emb)
 
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
         if valid_mask is None:

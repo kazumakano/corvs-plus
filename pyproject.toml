@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "corvs"
 version = "1.0.0"
-description = "Sample code of CorVS+"
+description = "Implementation of CorVS+"
 readme = "README.md"
 authors = [
     { name = "Kazuma Kano", email = "kazuma@ucl.nuee.nagoya-u.ac.jp" }
