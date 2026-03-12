@@ -82,7 +82,7 @@ class CorVSPredictDataset(data.Dataset):
     def _load_traj_data(path: Path, traj_track_id: int, start: float | None, stop: float | None) -> pd.DataFrame:
         traj_data_list = []
         for f in sorted(path.glob("trajectory_????????_??_??.csv")):
-            traj_data_list.append(pd.read_csv(f, usecols=("time", "track", "x", "y")))
+            traj_data_list.append(pd.read_csv(f, usecols=("time", "track", "x", "y"), engine="pyarrow"))
         if len(traj_data_list) > 0:
             traj_data = pd.concat(traj_data_list, ignore_index=True)
         else:
@@ -99,7 +99,7 @@ class CorVSPredictDataset(data.Dataset):
     def _load_sensor_data(path: Path, sensor_worker_id: int, start: float | None, stop: float | None) -> pd.DataFrame:
         sensor_data_list = []
         for f in sorted(path.glob(f"sensor_????????_??_??_{sensor_worker_id:02d}_??.csv")):
-            sensor_data_list.append(pd.read_csv(f, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z")))
+            sensor_data_list.append(pd.read_csv(f, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow"))
         if len(sensor_data_list) > 0:
             sensor_data = pd.concat(sensor_data_list, ignore_index=True)
         else:
