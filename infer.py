@@ -34,9 +34,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--data_path", default="dataset/", required=True, help="path to dataset root directory")
-    parser.add_argument("-p", "--param_path", default="configs/hparams.yaml", required=True, help="path to hyperparameter file")
-    parser.add_argument("-w", "--weight_path", default="dataset/model.safetensors", required=True, help="path to model weight file")
+    parser.add_argument("-d", "--data_path", default="dataset/", help="path to dataset root directory")
+    parser.add_argument("-p", "--param_path", default="configs/hparams.yaml", help="path to hyperparameter file")
+    parser.add_argument("-w", "--weight_path", default="dataset/model.safetensors", help="path to model weight file")
     parser.add_argument("-t", "--traj_track_id", type=int, required=True, help="track ID of trajectory", metavar="TRACK_ID")
     parser.add_argument("-s", "--sensor_worker_id", type=int, required=True, help="worker ID of sensor measurements", metavar="WORKER_ID")
     parser.add_argument("--from", help="start datetime in JST", metavar="DATETIME", dest="from_")
