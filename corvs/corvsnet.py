@@ -131,7 +131,7 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
         linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        output = 1 / (1 + torch.min(self.bn.running_var[0] / spd_var, self.bn.running_var[2] / linacc_var)).unsqueeze(1)
+        output = 1 / (1 + torch.min(self.bn.running_var[0] / (spd_var + 1e-5), self.bn.running_var[2] / (linacc_var + 1e-5))).unsqueeze(1)
 
         return output
 
