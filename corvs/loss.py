@@ -9,5 +9,5 @@ class FocalWithLogitsLoss(loss._Loss):
         super().__init__(reduction=reduction)
         self.alpha, self.gamma = alpha, gamma
 
-    def forward(self, input: torch.FloatTensor, target: torch.FloatTensor) -> torch.FloatTensor:    # (batch, *), (batch, *) -> (*, )
+    def forward(self, input: torch.FloatTensor, target: torch.FloatTensor) -> torch.FloatTensor:    # (*, ), (*, ) -> (*, )
         return ops.sigmoid_focal_loss(input, target, alpha=self.alpha, gamma=self.gamma, reduction=self.reduction)
