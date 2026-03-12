@@ -125,13 +125,13 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         rel = self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
         return prob, rel
 
-    def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
+    def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
         cnt = valid_mask.count_nonzero(dim=1)
         spd_mean = (valid_mask * spd).sum(dim=1) / cnt
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
         linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        output = 1 / (1 + torch.min(self.bn.running_var[0] / (spd_var + 1e-5), self.bn.running_var[2] / (linacc_var + 1e-5))).unsqueeze(1)
+        output = 1 / (1 + torch.min(self.bn.running_var[0] / (spd_var + eps), self.bn.running_var[2] / (linacc_var + eps))).unsqueeze(1)
 
         return output
 
