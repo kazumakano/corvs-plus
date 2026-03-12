@@ -19,9 +19,11 @@ Coming soon.
 ## Pre-trained models
 Coming soon.
 
-| Ver | # of Params | FLOPs @ W=600 | Test PF | Weights | Hyperparams | Note                |
-| --- | ----------- | ------------- | ------- | ------- | ----------- | ------------------- |
-| 1   | 106k        | 378M          | 0.761   |         |             | Best model in paper |
+| Ver | # of Params | FLOPs @ W=600 | Test PF | Weights | Hyperparams             | Note                |
+| --- | ----------- | ------------- | ------- | ------- | ----------------------- | ------------------- |
+| 1   | 106k        | 378M          | 0.761   |         | [hparams.yaml][param_1] | Best model in paper |
+
+[param_1]: https://onedrive.live.com/personal/5ba997f23749e33e/_layouts/15/download.aspx?UniqueId=814f01d0%2Df0c0%2D4be6%2D8155%2De2a5cfb9473b
 
 ## Demo
 Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
