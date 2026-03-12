@@ -120,6 +120,7 @@ numpy==2.4.2
     #   scipy
     #   torchmetrics
     #   torchtune
+    #   torchvision
 nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via
     #   nvidia-cudnn-cu12
@@ -177,7 +178,9 @@ pandas==3.0.1
     #   corvs
     #   datasets
 pillow==12.1.1
-    # via torchtune
+    # via
+    #   torchtune
+    #   torchvision
 propcache==0.4.1
     # via
     #   aiohttp
@@ -245,6 +248,7 @@ torch==2.9.1
     #   pytorch-optimizer
     #   torchdata
     #   torchmetrics
+    #   torchvision
 torchao==0.15.0
     # via corvs
 torchdata==0.11.0
@@ -254,6 +258,8 @@ torchmetrics==1.8.2
     #   lightning
     #   pytorch-lightning
 torchtune==0.6.1
+    # via corvs
+torchvision==0.24.1
     # via corvs
 tqdm==4.67.3
     # via

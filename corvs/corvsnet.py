@@ -13,8 +13,8 @@ from corvs.transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
 
 class CorVSNet(BaseModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
-        super().__init__(hparams)
+    def __init__(self, hparams: dict[str, Any] | DictConfig, loss_pos_weight: Optional[float] = None) -> None:
+        super().__init__(hparams, loss_pos_weight=loss_pos_weight)
 
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")

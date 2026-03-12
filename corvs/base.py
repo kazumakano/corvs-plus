@@ -6,14 +6,24 @@ from lightning import pytorch as L
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
 from safetensors import torch as safetensors
+from torch import nn
 from torch.optim import Optimizer
 from torchtune import training
+from corvs.loss import FocalWithLogitsLoss
 
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
+    def __init__(self, hparams: dict[str, Any] | DictConfig, loss_pos_weight: Optional[float] = None) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
+
+        match self.hparams["loss"]:
+            case "bce":
+                self.criterion = nn.BCEWithLogitsLoss(pos_weight=None if loss_pos_weight is None else torch.tensor(loss_pos_weight, dtype=torch.float32))
+            case "focal":
+                self.criterion = FocalWithLogitsLoss()
+            case _:
+                raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         match self.hparams["opt"]:
