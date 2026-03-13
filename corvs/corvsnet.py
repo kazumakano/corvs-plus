@@ -59,16 +59,13 @@ class CorVSNet(BaseModule):
 
     def reset_parameters(self) -> None:
         for m in self.modules():
-            if isinstance(m, nn.BatchNorm1d):
+            if isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.LayerNorm):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Conv1d):
                 init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     init.zeros_(m.bias)
-
-            elif isinstance(m, nn.LayerNorm):
-                m.reset_parameters()
 
             elif isinstance(m, nn.Linear):
                 init.xavier_uniform_(m.weight)
