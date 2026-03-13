@@ -133,7 +133,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
     def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.datasets = {}
+        self.datasets: dict[str, CorVSPredictDataset] = {}
         self.root_path = path
         self.traj_track_id, self.sensor_worker_id = traj_track_id, sensor_worker_id
         self.start, self.stop = start, stop
