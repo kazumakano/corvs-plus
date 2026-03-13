@@ -1,4 +1,5 @@
 .venv/
+.vscode/
 configs/
 corvs/__pycache__/
 dataset/
