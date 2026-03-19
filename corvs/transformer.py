@@ -47,6 +47,11 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             return super()._ff_block(x)
 
 class RotaryMultiheadAttention(nn.MultiheadAttention):
+    """
+    Modidied from `torch.nn.MultiheadAttention`.
+    This class supports RoPE.
+    """
+
     def __init__(
             self,
             embed_dim: int,
@@ -77,11 +82,6 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             average_attn_weights: bool = True,
             is_causal: bool = False
         ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
-        """
-        Modidied from `torch.nn.MultiheadAttention.forward()`.
-        This method applies RoPE to query and key.
-        """
-
         why_not_fast_path = ""
         if attn_mask is not None and torch.is_floating_point(attn_mask) or key_padding_mask is not None and torch.is_floating_point(key_padding_mask):
             why_not_fast_path = "floating-point masks are not supported for fast path."
