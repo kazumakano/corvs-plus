@@ -12,7 +12,7 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.utils import data
 from corvs import preprocess, utils
-from corvs.base import BaseDataset
+from corvs.base import BaseDataset, DataItem
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
@@ -25,7 +25,7 @@ class CorVSDataModule(L.LightningDataModule):
     ...
 
 class CorVSPredictDataset(BaseDataset):
-    item_idx = {"time": 0, "traj_feat": 1, "sensor_feat": 2, "valid_mask": 3}
+    item_idx = {DataItem.TIME: 0, DataItem.TRAJ_FEAT: 1, DataItem.SENOSR_FEAT: 2, DataItem.VALID_MASK: 3}
 
     def __init__(
             self,

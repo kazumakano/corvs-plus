@@ -1,3 +1,4 @@
+import enum
 from os import PathLike
 from typing import Any, Optional, Self
 import pytorch_optimizer as optim
@@ -14,8 +15,15 @@ from torchtune import training
 from corvs.loss import FocalWithLogitsLoss
 
 
+class DataItem(enum.Enum):
+    TIME = enum.auto()
+    TRAJ_FEAT = enum.auto()
+    SENOSR_FEAT = enum.auto()
+    VALID_MASK = enum.auto()
+    LABEL = enum.auto()
+
 class BaseDataset(data.Dataset):
-    item_idx: dict[str, int]
+    item_idx: dict[DataItem, int]
 
 class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], loss_pos_weight: Optional[float] = None) -> None:
