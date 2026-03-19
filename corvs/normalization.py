@@ -17,7 +17,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             Shape is (batch, channel, time).
         valid_mask : BoolTensor | FloatTensor | IntTensor
             Mask of valid times.
-            It takes True for valid and False for invalid.
+            True for valid and False for invalid.
             Shape is (batch, time).
 
         Returns

@@ -8,14 +8,19 @@ from omegaconf import DictConfig
 from safetensors import torch as safetensors
 from torch import nn
 from torch.optim import Optimizer
+from torch.utils import data
 from torchtune import training
 from corvs.loss import FocalWithLogitsLoss
 
 
+class BaseDataset(data.Dataset):
+    item_idx: dict[str, int]
+
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, loss_pos_weight: Optional[float] = None) -> None:
+    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], loss_pos_weight: Optional[float] = None) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
+        self.data_item_idx = dataset_cls.item_idx
 
         match self.hparams["loss"]:
             case "bce":
@@ -81,8 +86,8 @@ class BasePredictModule(L.LightningModule):
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, device: int | str | torch.device = "cpu", **kwargs: Any) -> Self:
-        self = cls(hparams=hparams, **kwargs)
+    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], device: int | str | torch.device = "cpu", **kwargs: Any) -> Self:
+        self = cls(hparams=hparams, dataset_cls=dataset_cls, **kwargs)
         safetensors.load_model(self, path)    # device argument does not work with lightning
         self = self.to(device=device).eval()
         return self

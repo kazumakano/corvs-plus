@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from corvs.base import BaseModule, BasePredictModule
+from corvs.base import BaseDataset, BaseModule, BasePredictModule
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
@@ -13,8 +13,8 @@ from corvs.transformer import RoFormerEncoderLayer, create_sin_pos_emb
 
 
 class CorVSNet(BaseModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, loss_pos_weight: Optional[float] = None) -> None:
-        super().__init__(hparams, loss_pos_weight=loss_pos_weight)
+    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], loss_pos_weight: Optional[float] = None) -> None:
+        super().__init__(hparams, dataset_cls, loss_pos_weight)
 
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
@@ -116,6 +116,18 @@ class CorVSNet(BaseModule):
 
         return output
 
+    def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
+        logit = self(batch[self.data_item_idx["traj_feat"]], batch[self.data_item_idx["sensor_feat"]], batch[self.data_item_idx["valid_mask"]])
+        loss = self.criterion(logit, batch[self.data_item_idx["label"]])
+        self.log("train_loss", loss, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
+        logit = self(batch[self.data_item_idx["traj_feat"]], batch[self.data_item_idx["sensor_feat"]], batch[self.data_item_idx["valid_mask"]])
+        loss = self.criterion(logit, batch[self.data_item_idx["label"]])
+        self.log("val_loss", loss, prog_bar=True)
+        return loss
+
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
@@ -132,7 +144,7 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
 
         return output
 
-    def predict_step(self, batch: list[torch.Tensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor]:
-        time = batch[0]
-        prob, rel = self(batch[1], batch[2], batch[3])
+    def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor]:
+        time = batch[self.data_item_idx["time"]]
+        prob, rel = self(batch[self.data_item_idx["traj_feat"]], batch[self.data_item_idx["sensor_feat"]], batch[self.data_item_idx["valid_mask"]])
         return time, prob, rel

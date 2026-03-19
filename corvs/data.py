@@ -12,18 +12,21 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.utils import data
 from corvs import preprocess, utils
+from corvs.base import BaseDataset
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
 SENSOR_FREQ = 100
 
-class CorVSDataset(data.Dataset):
+class CorVSDataset(BaseDataset):
     ...
 
 class CorVSDataModule(L.LightningDataModule):
     ...
 
-class CorVSPredictDataset(data.Dataset):
+class CorVSPredictDataset(BaseDataset):
+    item_idx = {"time": 0, "traj_feat": 1, "sensor_feat": 2, "valid_mask": 3}
+
     def __init__(
             self,
             path: PathLike,
@@ -34,20 +37,11 @@ class CorVSPredictDataset(data.Dataset):
             min_input_len: int,
             win_len: int,
             win_stride: int,
-            start: Optional[float | str| datetime] = None,
-            stop: Optional[float | str | datetime] = None
+            start: Optional[float] = None,
+            stop: Optional[float] = None
         ) -> None:
         self.freq = freq_in_hz
         self.win_len, self.win_stride = win_len, win_stride
-
-        if isinstance(start, str):
-            start = utils.str_to_datetime(start, utils.jst)
-        if isinstance(start, datetime):
-            start = start.timestamp()
-        if isinstance(stop, str):
-            stop = utils.str_to_datetime(stop, utils.jst)
-        if isinstance(stop, datetime):
-            stop = stop.timestamp()
 
         traj_data = self._load_traj_data(Path(path) / "trajectory", traj_track_id, start, stop)
         sensor_data = self._load_sensor_data(Path(path) / "sensor", sensor_worker_id, start, stop)
@@ -136,9 +130,18 @@ class CorVSPredictDataModule(L.LightningDataModule):
         self.datasets: dict[Literal["pred"], CorVSPredictDataset] = {}
         self.root_path = path
         self.traj_track_id, self.sensor_worker_id = traj_track_id, sensor_worker_id
+
+        if isinstance(start, str):
+            start = utils.str_to_datetime(start, utils.jst)
+        if isinstance(start, datetime):
+            start = start.timestamp()
+        if isinstance(stop, str):
+            stop = utils.str_to_datetime(stop, utils.jst)
+        if isinstance(stop, datetime):
+            stop = stop.timestamp()
         self.start, self.stop = start, stop
 
-    def setup(self, stage: Literal["fit", "validate", "test", "predict"]) -> None:
+    def setup(self, stage: Literal["predict"]) -> None:
         match stage:
             case "predict":
                 if "pred" not in self.datasets.keys():

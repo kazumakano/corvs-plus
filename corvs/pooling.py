@@ -33,7 +33,7 @@ def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
         Shape is (*, channel, time).
     valid_mask : BoolTensor | FloatTensor | IntTensor
         Mask of valid times.
-        It takes True for valid and False for invalid.
+        True for valid and False for invalid.
         Shape is (*, time).
 
     output : FloatTensor
@@ -54,7 +54,7 @@ def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
         Shape is (*, channel, time).
     valid_mask : BoolTensor
         Mask of valid times.
-        It takes True for valid and False for invalid.
+        True for valid and False for invalid.
         Shape is (*, time).
 
     output : FloatTensor
@@ -75,7 +75,7 @@ def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.Boo
         Shape is (*, channel, time).
     valid_mask : BoolTensor
         Mask of valid times.
-        It takes True for valid and False for invalid.
+        True for valid and False for invalid.
         Shape is (*, time).
     temp : float | Parameter
         Temperature parameter.
