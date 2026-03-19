@@ -10,7 +10,7 @@ from corvs.embedding import RotaryPositionalEmbeddings
 class TransformerEncoderLayer(nn.TransformerEncoderLayer):
     """
     Modified from `torch.nn.TransformerEncoderLayer`.
-    This class supports SwiGLU.
+    This class supports SwiGLU and RMSNorm.
     """
 
     def __init__(
@@ -20,7 +20,8 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
             activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
-            layer_norm_eps: float = 1e-5,
+            norm: Literal["layer", "rms"] = "layer",
+            norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
@@ -28,7 +29,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             dtype: Any = None
         ) -> None:
         if activation == "swiglu":
-            super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
+            super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, norm_eps, batch_first, norm_first, bias, device, dtype)
 
             self.activation = "swiglu"
             self.ff = modules.FeedForward(
@@ -38,7 +39,11 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             )
             del self.linear1, self.dropout, self.linear2
         else:
-            super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
+            super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm_eps, batch_first, norm_first, bias, device, dtype)
+
+        if norm == "rms":
+            self.norm1 = nn.RMSNorm(d_model, eps=norm_eps, device=device, dtype=dtype)
+            self.norm2 = nn.RMSNorm(d_model, eps=norm_eps, device=device, dtype=dtype)
 
     def _ff_block(self, x: torch.FloatTensor) -> torch.FloatTensor:
         if self.activation == "swiglu":
@@ -227,7 +232,8 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
             activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
-            layer_norm_eps: float = 1e-5,
+            norm: Literal["layer", "rms"] = "layer",
+            norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
@@ -235,5 +241,5 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             dtype: Any = None,
             rope_base: int = 10000
         ) -> None:
-        super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
+        super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm, norm_eps, batch_first, norm_first, bias, device, dtype)
         self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, batch_first=batch_first, device=device, dtype=dtype, rope_base=rope_base)
