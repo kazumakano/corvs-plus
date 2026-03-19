@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
-from torchtune.modules import feed_forward
+from torchtune import modules
 from corvs.embedding import RotaryPositionalEmbeddings
 
 
@@ -31,7 +31,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
 
             self.activation = "swiglu"
-            self.ff = feed_forward.FeedForward(
+            self.ff = modules.FeedForward(
                 gate_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
                 down_proj=nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
                 up_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
