@@ -1,10 +1,36 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Literal, Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
+from torchtune.modules import feed_forward
 from corvs.embedding import RotaryPositionalEmbeddings
 
+
+class SwiGLUTransformerEncoderLayer(nn.TransformerEncoderLayer):
+    def __init__(
+            self,
+            d_model: int,
+            nhead: int,
+            dim_feedforward: int = 2048,
+            dropout: float = 0.1,    # 0 for LLM
+            layer_norm_eps: float = 1e-5,
+            batch_first: bool = False,
+            norm_first: bool = False,
+            bias: bool = True,    # False for LLM
+            device: Any = None,
+            dtype: Any = None
+        ) -> None:
+        super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
+
+        del self.linear1, self.activation, self.dropout, self.linear2
+        gate_proj = nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
+        down_proj = nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype)
+        up_proj = nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
+        self.ff = feed_forward.FeedForward(gate_proj=gate_proj, down_proj=down_proj, up_proj=up_proj)
+
+    def _ff_block(self, x: torch.FloatTensor) -> torch.FloatTensor:
+        return self.dropout2(self.ff(x))
 
 class RotaryMultiheadAttention(nn.MultiheadAttention):
     def __init__(
@@ -186,7 +212,7 @@ class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
             time_len: int,
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
-            activation: str | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
+            activation: Literal["relu", "gelu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
             layer_norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,
