@@ -8,6 +8,7 @@ from omegaconf import DictConfig
 from safetensors import torch as safetensors
 from torch import nn
 from torch.optim import Optimizer
+from torch.types import Device
 from torch.utils import data
 from torchtune import training
 from corvs.loss import FocalWithLogitsLoss
@@ -86,7 +87,7 @@ class BasePredictModule(L.LightningModule):
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], device: int | str | torch.device = "cpu", **kwargs: Any) -> Self:
+    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
         self = cls(hparams=hparams, dataset_cls=dataset_cls, **kwargs)
         safetensors.load_model(self, path)    # device argument does not work with lightning
         self = self.to(device=device).eval()
