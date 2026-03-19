@@ -119,13 +119,13 @@ class CorVSNet(BaseModule):
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        loss = self.criterion(logit, batch[self.data_item_idx["label"]])
+        loss = self.criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        loss = self.criterion(logit, batch[self.data_item_idx["label"]])
+        loss = self.criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
