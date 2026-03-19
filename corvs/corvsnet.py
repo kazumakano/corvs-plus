@@ -7,9 +7,10 @@ from torch.nn import functional as F
 from torch.nn import init
 from corvs.base import BaseDataset, BaseModule, BasePredictModule
 from corvs.cnn import DualCNN, SeparableDualCNN
+from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
-from corvs.transformer import RoFormerEncoderLayer, create_sin_pos_emb
+from corvs.transformer import RoFormerEncoderLayer
 
 
 class CorVSNet(BaseModule):
