@@ -10,7 +10,7 @@ from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
-from corvs.transformer import RoFormerEncoderLayer
+from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
 class CorVSNet(BaseModule):
@@ -36,12 +36,12 @@ class CorVSNet(BaseModule):
         match self.hparams["xformer_pos_enc"]:
             case "learnable":
                 self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
-                xformer_layer = nn.TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "sinusoidal":
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
-                xformer_layer = nn.TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "rope":
-                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, dim_feedforward=self.hparams["xformer_d_ff"], activation=F.gelu, norm_first=True)
+                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, dim_feedforward=self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case _:
                 raise ValueError(f"unknown positional encoding {self.hparams['xformer_pos_enc']} was specified")
         self.xformer = nn.TransformerEncoder(xformer_layer, self.hparams["xformer_n_layers"], norm=nn.LayerNorm(self.hparams["xformer_d_model"]), enable_nested_tensor=False)

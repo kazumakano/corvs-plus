@@ -7,30 +7,44 @@ from torchtune.modules import feed_forward
 from corvs.embedding import RotaryPositionalEmbeddings
 
 
-class SwiGLUTransformerEncoderLayer(nn.TransformerEncoderLayer):
+class TransformerEncoderLayer(nn.TransformerEncoderLayer):
+    """
+    Modified from `torch.nn.TransformerEncoderLayer`.
+    This class supports SwiGLU.
+    """
+
     def __init__(
             self,
             d_model: int,
             nhead: int,
             dim_feedforward: int = 2048,
-            dropout: float = 0.1,    # 0 for LLM
+            dropout: float = 0.1,
+            activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
             layer_norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,
-            bias: bool = True,    # False for LLM
+            bias: bool = True,
             device: Any = None,
             dtype: Any = None
         ) -> None:
-        super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
+        if activation == "swiglu":
+            super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
 
-        del self.linear1, self.activation, self.dropout, self.linear2
-        gate_proj = nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
-        down_proj = nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype)
-        up_proj = nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
-        self.ff = feed_forward.FeedForward(gate_proj=gate_proj, down_proj=down_proj, up_proj=up_proj)
+            self.activation = "swiglu"
+            self.ff = feed_forward.FeedForward(
+                gate_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
+                down_proj=nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
+                up_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
+            )
+            del self.linear1, self.dropout, self.linear2
+        else:
+            super().__init__(d_model, nhead, dim_feedforward, dropout, activation, layer_norm_eps, batch_first, norm_first, bias, device, dtype)
 
     def _ff_block(self, x: torch.FloatTensor) -> torch.FloatTensor:
-        return self.dropout2(self.ff(x))
+        if self.activation == "swiglu":
+            return self.dropout2(self.ff(x))
+        else:
+            return super()._ff_block(x)
 
 class RotaryMultiheadAttention(nn.MultiheadAttention):
     def __init__(
@@ -204,7 +218,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
         if hasattr(self, "rope"):
             self.rope.rope_init()
 
-class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
+class RoFormerEncoderLayer(TransformerEncoderLayer):
     def __init__(
             self,
             d_model: int,
@@ -212,7 +226,7 @@ class RoFormerEncoderLayer(nn.TransformerEncoderLayer):
             time_len: int,
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
-            activation: Literal["relu", "gelu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
+            activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
             layer_norm_eps: float = 1e-5,
             batch_first: bool = False,
             norm_first: bool = False,

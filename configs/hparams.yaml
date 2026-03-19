@@ -20,6 +20,7 @@ xformer_n_layers: 4
 xformer_d_model: 48
 xformer_nhead: 4
 xformer_d_ff: 128
+xformer_act: gelu
 time_agg: attn_pool
 
 # training
