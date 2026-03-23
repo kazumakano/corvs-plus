@@ -1,6 +1,7 @@
 import enum
+import abc
 from os import PathLike
-from typing import Any, Optional, Self
+from typing import Any, Literal, Optional, Self
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -20,24 +21,37 @@ class DataItem(enum.Enum):
     TRAJ_FEAT = enum.auto()
     SENOSR_FEAT = enum.auto()
     VALID_MASK = enum.auto()
+    VISIBLE_MASK = enum.auto()
     LABEL = enum.auto()
 
-class BaseDataset(data.Dataset):
-    item_idx: dict[DataItem, int]
+class BaseDataset(data.Dataset, abc.ABC):
+    @property
+    @abc.abstractmethod
+    def item_idx(self) -> dict[DataItem, int]:
+        ...
+
+class BaseFitDataset(BaseDataset):
+    @property
+    @abc.abstractmethod
+    def neg_ratio(self) -> float:
+        ...
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], loss_pos_weight: Optional[float] = None) -> None:
+    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
         self.data_item_idx = dataset_cls.item_idx
 
-        match self.hparams["loss"]:
-            case "bce":
-                self.criterion = nn.BCEWithLogitsLoss(pos_weight=None if loss_pos_weight is None else torch.tensor(loss_pos_weight, dtype=torch.float32))
-            case "focal":
-                self.criterion = FocalWithLogitsLoss()
-            case _:
-                raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
+class BaseFitModule(BaseModule):
+    def setup(self, stage: Literal["fit", "validate", "test", "predict"]) -> None:
+        if stage == "fit":
+            match self.hparams["loss"]:
+                case "bce":
+                    self.criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
+                case "focal":
+                    self.criterion = FocalWithLogitsLoss()
+                case _:
+                    raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         match self.hparams["opt"]:
@@ -89,7 +103,7 @@ class BaseModule(L.LightningModule):
     def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
-class BasePredictModule(L.LightningModule):
+class BasePredictModule(BaseModule):
     def on_predict_start(self) -> None:
         if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
