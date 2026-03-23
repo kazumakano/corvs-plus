@@ -5,7 +5,7 @@ min_input_len: 21
 win_len: 600
 win_stride: 10
 pos_factor: 4
-pos_mask: 0.25
+pos_mask: 0.275
 pos_shift: 0.25
 neg_ratio: 1024
 
@@ -32,4 +32,5 @@ batch_size: 128
 max_step: 100000
 val_step: 1000
 warm_step: 5000
+patience: 10
 num_workers: 4
