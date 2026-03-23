@@ -10,16 +10,16 @@ from corvs import CorVSNetPredictor, CorVSPredictDataModule, CorVSPredictDataset
 
 
 def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredictDataset, prob: torch.FloatTensor, rel: torch.FloatTensor) -> None:
-    tbl = Table("Track ID", "Worker ID", "Time (sec)", "Prob Avg", "Rel Avg")
-    tbl.add_row(str(traj_track_id), str(sensor_worker_id), str(round(dataset.tot_time_in_sec)), format(prob.mean().item(), ".3f"), format(rel.mean().item(), ".3f"))
+    tbl = Table("Track ID", "Worker ID", "Time (sec)", "Prob Avg", "Rel Avg", "Label")
+    tbl.add_row(str(traj_track_id), str(sensor_worker_id), str(round(dataset.tot_time_in_sec)), format(prob.mean().item(), ".3f"), format(rel.mean().item(), ".3f"), str(round(dataset.label.item())))
     Console().print(tbl)
 
 def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj_track_id: int, sensor_worker_id: int, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
-    datamodule = CorVSPredictDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, stop)
     model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredictDataset)
+    datamodule = CorVSPredictDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, stop)
     trainer = L.Trainer(devices=1, logger=False)
 
     result = trainer.predict(model, datamodule=datamodule)
