@@ -1,16 +1,27 @@
 import math
-from typing import Literal, TypeVar, overload
+from typing import Literal, Optional, TypeVar, overload
 import numba
 import numpy as np
 import pandas as pd
 import torch
-from numpy import linalg
+from numpy import linalg, random
 from numpy.typing import ArrayLike, NDArray
 from pandas.core.groupby import DataFrameGroupBy
 from scipy.interpolate import interp1d
 from torch.nn import functional as F
 from torch.nn.utils import rnn
 
+
+def rand_split(data: ArrayLike, ratio: tuple[float, float, float], rng: Optional[random.Generator] = None) -> list[NDArray]:
+    if sum(ratio) != 1:
+        raise ValueError("summation of ratios must be 1")
+
+    if rng is None:
+        rng = random.default_rng()
+    data = rng.permutation(data)
+    data = np.split(data, (round(ratio[0] * len(data)), round(sum(ratio[:2]) * len(data)), len(data)))
+
+    return data
 
 def seg_by_timeout(data: pd.DataFrame, timeout_in_sec: float) -> DataFrameGroupBy:
     return data.groupby(by=(data["time"].diff() > timeout_in_sec).cumsum(), sort=False)
