@@ -29,12 +29,13 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             dtype: Any = None
         ) -> None:
         if activation == "swiglu":
-            super().__init__(d_model, nhead, dim_feedforward, dropout, F.relu, norm_eps, batch_first, norm_first, bias, device, dtype)
+            super().__init__(d_model, nhead, dim_feedforward, dropout, layer_norm_eps=norm_eps, batch_first=batch_first, norm_first=norm_first, bias=bias, device=device, dtype=dtype)
 
             self.activation = "swiglu"
+            self.activation_relu_or_gelu = 0
             self.ff = modules.FeedForward(
-                gate_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
-                down_proj=nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
+                nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
+                nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
                 up_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
             )
             del self.linear1, self.dropout, self.linear2
