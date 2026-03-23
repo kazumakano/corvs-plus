@@ -81,7 +81,7 @@ class CorVSNet(BaseModule):
         if self.hparams["xformer_pos_enc"] == "learnable":
             init.xavier_uniform_(self.pos_emb)
 
-    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1)
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None, visible_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time), (batch, time) -> (batch, 1)
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=self.device)
 
@@ -95,7 +95,16 @@ class CorVSNet(BaseModule):
         if self.hparams["xformer_pos_enc"] in ("learnable", "sinusoidal"):
             pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
+
         valid_mask = valid_mask[:, -len(hidden):]
+        if visible_mask is not None:
+            if not self._mask_is_contig(~visible_mask):
+                raise ValueError("invisible region must be contiguous")
+            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=self.device)
+            invisible_min_idx = torch.where(~visible_mask, time_idx, torch.inf).min(dim=1).values    # (batch, )
+            invisible_max_idx = torch.where(~visible_mask, time_idx, -torch.inf).max(dim=1).values    # (batch, )
+            valid_mask &= (time_idx[:len(hidden)].unsqueeze(0) < invisible_min_idx.unsqueeze(1)) | (invisible_max_idx.unsqueeze(1) < time_idx[-len(hidden):].unsqueeze(0))
+
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
         hidden = einops.rearrange(hidden, "t b d -> b d t")
@@ -117,15 +126,20 @@ class CorVSNet(BaseModule):
 
         return output
 
+    def _mask_is_contig(self, mask: torch.BoolTensor) -> bool:
+        diff = mask.diff(prepend=torch.zeros((len(mask), 1), dtype=torch.bool, device=self.device))
+        diff_cnt = diff.count_nonzero(dim=1)
+        return (diff_cnt < 3).all().item()
+
 class CorVSNetFitter(CorVSNet, BaseFitModule):
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
+        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]], batch[self.data_item_idx[DataItem.VISIBLE_MASK]])
         loss = self.train_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
+        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]], batch[self.data_item_idx[DataItem.VISIBLE_MASK]])
         loss = self.val_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("val_loss", loss, prog_bar=True)
         return loss
