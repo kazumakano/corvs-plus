@@ -7,6 +7,7 @@ from torch.nn import functional as F
 from torch.nn import init
 from corvs.base import BaseDataset, BaseFitModule, BaseModule, BasePredictModule, DataItem
 from corvs.cnn import DualCNN, SeparableDualCNN
+from corvs.data import CorVSFitDataset, CorVSPredictDataset
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
@@ -101,8 +102,8 @@ class CorVSNet(BaseModule):
             if not self._mask_is_contig(~visible_mask):
                 raise ValueError("invisible region must be contiguous")
             time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=self.device)    # (time, )
-            invisible_min_idx = torch.where(~visible_mask, time_idx, torch.inf).min(dim=1).values    # (batch, )
-            invisible_max_idx = torch.where(~visible_mask, time_idx, -torch.inf).max(dim=1).values    # (batch, )
+            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values    # (batch, )
+            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values    # (batch, )
             valid_mask &= (time_idx[:len(hidden)].unsqueeze(0) < invisible_min_idx.unsqueeze(1)) | (invisible_max_idx.unsqueeze(1) < time_idx[-len(hidden):].unsqueeze(0))
 
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
@@ -132,6 +133,9 @@ class CorVSNet(BaseModule):
         return (diff_cnt < 3).all().item()
 
 class CorVSNetFitter(CorVSNet, BaseFitModule):
+    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
+        super().__init__(hparams, CorVSFitDataset)
+
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]], batch[self.data_item_idx[DataItem.VISIBLE_MASK]])
         loss = self.train_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
@@ -145,6 +149,9 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
+    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
+        super().__init__(hparams, CorVSPredictDataset)
+
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
         rel = self.rel_estim(traj_input[:, :, 0], sensor_input[:, :, 0], valid_mask)
