@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from corvs.base import BaseDataset, BaseModule, BasePredictModule, DataItem
+from corvs.base import BaseDataset, BaseFitModule, BaseModule, BasePredictModule, DataItem
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
@@ -14,8 +14,8 @@ from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
 class CorVSNet(BaseModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], loss_pos_weight: Optional[float] = None) -> None:
-        super().__init__(hparams, dataset_cls, loss_pos_weight)
+    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
+        super().__init__(hparams, dataset_cls)
 
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
@@ -41,7 +41,7 @@ class CorVSNet(BaseModule):
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "rope":
-                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, dim_feedforward=self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
+                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case _:
                 raise ValueError(f"unknown positional encoding {self.hparams['xformer_pos_enc']} was specified")
         self.xformer = nn.TransformerEncoder(xformer_layer, self.hparams["xformer_n_layers"], norm=nn.LayerNorm(self.hparams["xformer_d_model"]), enable_nested_tensor=False)
@@ -117,15 +117,16 @@ class CorVSNet(BaseModule):
 
         return output
 
+class CorVSNetFitter(CorVSNet, BaseFitModule):
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        loss = self.criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
+        loss = self.train_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        loss = self.criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
+        loss = self.val_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
@@ -145,7 +146,8 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
 
         return output
 
-    def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor]:
+    def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         time = batch[self.data_item_idx[DataItem.TIME]]
         prob, rel = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        return time, prob, rel
+        label = batch[self.data_item_idx[DataItem.LABEL]]
+        return time, prob, rel, label

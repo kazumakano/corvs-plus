@@ -47,11 +47,12 @@ class BaseFitModule(BaseModule):
         if stage == "fit":
             match self.hparams["loss"]:
                 case "bce":
-                    self.criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
+                    self.train_criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
                 case "focal":
-                    self.criterion = FocalWithLogitsLoss()
+                    self.train_criterion = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
+            self.val_criterion = nn.BCEWithLogitsLoss()
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         match self.hparams["opt"]:
