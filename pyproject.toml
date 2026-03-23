@@ -29,6 +29,7 @@ dependencies = [
     "torchao==0.15.0",
     "torchtune>=0.6.1",
     "torchvision==0.24.1",
+    "tqdm>=4.67.3",
 ]
 
 [project.optional-dependencies]
