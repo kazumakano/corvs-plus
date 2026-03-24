@@ -32,8 +32,8 @@ class BestMetricsWriter(L.Callback):
                 raise ValueError("mode must be 'min' or 'max'")
 
     def on_validation_epoch_end(self, trainer: L.Trainer, _: L.LightningModule) -> None:
-        metrics = {k: v.item() for k, v in trainer.callback_metrics.items()}
-        if self.mode == "min" and metrics[self.monitor] < self.best_metrics[self.monitor] or self.mode == "max" and metrics[self.monitor] > self.best_metrics[self.monitor]:
+        metrics = {n: v.item() for n, v in trainer.callback_metrics.items()}
+        if self.mode == "min" and metrics[self.monitor] < self.best_metrics[self.monitor] or self.mode == "max" and self.best_metrics[self.monitor] < metrics[self.monitor]:
             self.best_metrics = metrics | {"epoch": trainer.current_epoch, "step": trainer.global_step}
             trainer.logger.log_metrics({"hp_metric": self.best_metrics[self.monitor]}, step=trainer.global_step)
 
