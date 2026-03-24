@@ -59,6 +59,13 @@ class CorVSNet(BaseModule):
 
         self.reset_parameters()
 
+        self.example_input_array = (
+            torch.empty(1, self.hparams["win_len"], 2, dtype=torch.float32),
+            torch.empty(1, self.hparams["win_len"], 7, dtype=torch.float32),
+            torch.ones(1, self.hparams["win_len"], dtype=torch.bool),
+            torch.ones(1, self.hparams["win_len"], dtype=torch.bool)
+        )
+
     def reset_parameters(self) -> None:
         for m in self.modules():
             if isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.LayerNorm):
