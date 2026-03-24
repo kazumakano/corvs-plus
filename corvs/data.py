@@ -65,7 +65,7 @@ def load_sensor_data(path: Path, worker_id: int, start: Optional[float] = None, 
     return all_data
 
 class CorVSFitDataset(BaseFitDataset):
-    item_idx = {DataItem.TRAJ_FEAT: 0, DataItem.SENOSR_FEAT: 1, DataItem.VALID_MASK: 2, DataItem.VISIBLE_MASK: 3, DataItem.LABEL: 4}
+    items = DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.VISIBLE_MASK, DataItem.LABEL
 
     def __init__(
             self,
@@ -264,7 +264,7 @@ class CorVSFitDataModule(L.LightningDataModule):
         OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
 class CorVSPredictDataset(BaseDataset):
-    item_idx = {DataItem.TIME: 0, DataItem.TRAJ_FEAT: 1, DataItem.SENOSR_FEAT: 2, DataItem.VALID_MASK: 3, DataItem.LABEL: 4}
+    items = DataItem.TIME, DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.LABEL
 
     def __init__(
             self,

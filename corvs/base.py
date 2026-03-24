@@ -1,7 +1,7 @@
 import abc
 import enum
 from os import PathLike
-from typing import Any, Literal, Optional, Self
+from typing import Any, ClassVar, Literal, Optional, Self, Sequence
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -19,18 +19,15 @@ from corvs.loss import FocalWithLogitsLoss
 class DataItem(enum.Enum):
     TIME         = enum.auto()
     TRAJ_FEAT    = enum.auto()
-    SENOSR_FEAT  = enum.auto()
+    SENSOR_FEAT  = enum.auto()
     VALID_MASK   = enum.auto()
     VISIBLE_MASK = enum.auto()
     LABEL        = enum.auto()
 
-class BaseDataset(data.Dataset, abc.ABC):
-    @property
-    @abc.abstractmethod
-    def item_idx(self) -> dict[DataItem, int]:
-        ...
+class BaseDataset(data.Dataset):
+    items: ClassVar[Sequence[DataItem]]
 
-class BaseFitDataset(BaseDataset):
+class BaseFitDataset(BaseDataset, abc.ABC):
     @property
     @abc.abstractmethod
     def neg_ratio(self) -> float:
@@ -40,7 +37,7 @@ class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.data_item_idx = dataset_cls.item_idx
+        self.data_items = dataset_cls.items
 
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:

@@ -145,14 +145,14 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         )
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]], batch[self.data_item_idx[DataItem.VISIBLE_MASK]])
-        loss = self.train_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
+        logit = self(batch[self.data_items.index(DataItem.TRAJ_FEAT)], batch[self.data_items.index(DataItem.SENSOR_FEAT)], batch[self.data_items.index(DataItem.VALID_MASK)], batch[self.data_items.index(DataItem.VISIBLE_MASK)])
+        loss = self.train_criterion(logit, batch[self.data_items.index(DataItem.LABEL)])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]], batch[self.data_item_idx[DataItem.VISIBLE_MASK]])
-        loss = self.val_criterion(logit, batch[self.data_item_idx[DataItem.LABEL]])
+        logit = self(batch[self.data_items.index(DataItem.TRAJ_FEAT)], batch[self.data_items.index(DataItem.SENSOR_FEAT)], batch[self.data_items.index(DataItem.VALID_MASK)], batch[self.data_items.index(DataItem.VISIBLE_MASK)])
+        loss = self.val_criterion(logit, batch[self.data_items.index(DataItem.LABEL)])
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
@@ -176,7 +176,7 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         return output
 
     def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
-        time = batch[self.data_item_idx[DataItem.TIME]]
-        prob, rel = self(batch[self.data_item_idx[DataItem.TRAJ_FEAT]], batch[self.data_item_idx[DataItem.SENOSR_FEAT]], batch[self.data_item_idx[DataItem.VALID_MASK]])
-        label = batch[self.data_item_idx[DataItem.LABEL]]
+        time = batch[self.data_items.index(DataItem.TIME)]
+        prob, rel = self(batch[self.data_items.index(DataItem.TRAJ_FEAT)], batch[self.data_items.index(DataItem.SENSOR_FEAT)], batch[self.data_items.index(DataItem.VALID_MASK)])
+        label = batch[self.data_items.index(DataItem.LABEL)]
         return time, prob, rel, label

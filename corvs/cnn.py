@@ -15,16 +15,16 @@ class DualCNN(nn.Module):
         self.act = act
         half_out_ch = out_ch // 2
 
-        self.conv_1 = nn.Conv1d(in_ch, half_out_ch, ks_s, bias=False)
-        self.bn_1 = MaskedBatchNorm1d(half_out_ch)
+        self.conv_1   = nn.Conv1d(in_ch, half_out_ch, ks_s, bias=False)
+        self.bn_1     = MaskedBatchNorm1d(half_out_ch)
         self.conv_2_s = nn.Conv1d(half_out_ch, half_out_ch, ks_s, bias=False)
-        self.bn_2_s = MaskedBatchNorm1d(half_out_ch)
+        self.bn_2_s   = MaskedBatchNorm1d(half_out_ch)
         self.conv_3_s = nn.Conv1d(half_out_ch, half_out_ch, ks_s, bias=False)
-        self.bn_3_s = MaskedBatchNorm1d(half_out_ch)
+        self.bn_3_s   = MaskedBatchNorm1d(half_out_ch)
         self.conv_2_l = nn.Conv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, bias=False)
-        self.bn_2_l = MaskedBatchNorm1d(half_out_ch)
+        self.bn_2_l   = MaskedBatchNorm1d(half_out_ch)
         self.conv_3_l = nn.Conv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, bias=False)
-        self.bn_3_l = MaskedBatchNorm1d(half_out_ch)
+        self.bn_3_l   = MaskedBatchNorm1d(half_out_ch)
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
         hidden: torch.FloatTensor = self.conv_1(input)
