@@ -1,5 +1,5 @@
-import enum
 import abc
+import enum
 from os import PathLike
 from typing import Any, Literal, Optional, Self
 import pytorch_optimizer as optim
@@ -17,12 +17,12 @@ from corvs.loss import FocalWithLogitsLoss
 
 
 class DataItem(enum.Enum):
-    TIME = enum.auto()
-    TRAJ_FEAT = enum.auto()
-    SENOSR_FEAT = enum.auto()
-    VALID_MASK = enum.auto()
+    TIME         = enum.auto()
+    TRAJ_FEAT    = enum.auto()
+    SENOSR_FEAT  = enum.auto()
+    VALID_MASK   = enum.auto()
     VISIBLE_MASK = enum.auto()
-    LABEL = enum.auto()
+    LABEL        = enum.auto()
 
 class BaseDataset(data.Dataset, abc.ABC):
     @property
@@ -43,7 +43,7 @@ class BaseModule(L.LightningModule):
         self.data_item_idx = dataset_cls.item_idx
 
 class BaseFitModule(BaseModule):
-    def setup(self, stage: Literal["fit", "validate", "test", "predict"]) -> None:
+    def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         if stage == "fit":
             match self.hparams["loss"]:
                 case "bce":
