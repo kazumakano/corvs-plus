@@ -121,26 +121,26 @@ class CorVSFitDataset(BaseFitDataset):
             for j in range(win_num):
                 pos_map.append((i, j, valid_len, 0, 0, 0))
                 for _ in range(pos_factor - 1):
-                    mask_pos = rng.integers(valid_len - mask_len, endpoint=True)
+                    mask_pos = rng.integers(valid_len - mask_len, dtype=np.int32, endpoint=True)
                     if pos_shift_in_sec is None or valid_len < self.win_len:
                         shift_len = 0
                     else:
                         shift_len = round(rng.normal(scale=self.freq * pos_shift_in_sec))
                         shift_len = max(-j * self.win_stride, shift_len)
                         shift_len = min(shift_len, len(self.traj_feat[i]) - j * self.win_stride - self.win_len)
-                    pos_map.append((i, j, valid_len, mask_len, mask_pos, shift_len))
+                    pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
         self.pos_map: torch.IntTensor = torch.tensor(pos_map, dtype=torch.int32)
 
         neg_map = []
-        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[:, :3], desc="building negative pairs"):
+        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
             cnt = 0
-            for i_2, j_2, vl_2 in rng.permutation(self.pos_map[:, :3]):
+            for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
                 if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_stride:
                     neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-        self.neg_map = torch.tensor(neg_map, dtype=torch.int32)
+        self.neg_map: torch.IntTensor = torch.tensor(neg_map, dtype=torch.int32)
 
         self._cache(cache_path)
 
