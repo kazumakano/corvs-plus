@@ -45,7 +45,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         seq_len = x.size(1)
 
-        if seq_len > len(self.cache):
+        if seq_len > self.cache.shape[0]:
             self.build_rope_cache(seq_len)
 
         rope_cache = self.cache[:seq_len] if input_pos is None else self.cache[input_pos]

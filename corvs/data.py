@@ -21,9 +21,9 @@ TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
 SENSOR_FREQ = 100
 
-def load_traj_data(path: Path, track_ids: Optional[Iterable[int]] = None, label_ids: Optional[Iterable[int]] = None, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
+def load_traj_data(path: PathLike, track_ids: Optional[Iterable[int]] = None, label_ids: Optional[Iterable[int]] = None, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
     all_data = []
-    for p in sorted(path.glob("trajectory_????????_??_??.csv")):
+    for p in sorted(Path(path).glob("trajectory_????????_??_??.csv")):
         data = pd.read_csv(
             p,
             usecols=("time", "track", "x", "y", "label"),
@@ -47,9 +47,9 @@ def load_traj_data(path: Path, track_ids: Optional[Iterable[int]] = None, label_
 
     return all_data
 
-def load_sensor_data(path: Path, worker_id: int, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
+def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
     all_data = []
-    for p in sorted(path.glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
+    for p in sorted(Path(path).glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
         data = pd.read_csv(p, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow")
         if start is not None:
             data = data[data["time"] >= start]
@@ -88,13 +88,14 @@ class CorVSFitDataset(BaseFitDataset):
         self.freq = freq_in_hz
         self.win_len, self.win_stride = win_len, win_stride
 
-        all_traj_data = load_traj_data(Path(root_path) / "trajectory", traj_track_ids, start=start, stop=stop)
+        root_path = Path(root_path)
+        all_traj_data = load_traj_data(root_path / "trajectory", traj_track_ids, start=start, stop=stop)
 
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         for ti in tqdm.tqdm(traj_track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
-            sensor_data = load_sensor_data(Path(root_path) / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
+            sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
             if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
                 meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
@@ -114,10 +115,10 @@ class CorVSFitDataset(BaseFitDataset):
         rng = random.default_rng(seed=seed)
 
         pos_map = []
-        for i in tqdm.tqdm(range(len(self.traj_feat)), "building positive pairs"):
-            valid_len = min(self.win_len, len(self.traj_feat[i]))
+        for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs")):
+            valid_len = min(self.win_len, len(tf))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
-            win_num = max(1, (len(self.traj_feat[i]) - self.win_len) // self.win_stride + 1)
+            win_num = max(1, (len(tf) - self.win_len) // self.win_stride + 1)
             for j in range(win_num):
                 pos_map.append((i, j, valid_len, 0, 0, 0))
                 for _ in range(pos_factor - 1):
@@ -125,9 +126,9 @@ class CorVSFitDataset(BaseFitDataset):
                     if pos_shift_in_sec is None or valid_len < self.win_len:
                         shift_len = 0
                     else:
-                        shift_len = round(rng.normal(scale=self.freq * pos_shift_in_sec))
+                        shift_len = round(rng.normal(scale=pos_shift_in_sec * self.freq))
                         shift_len = max(-j * self.win_stride, shift_len)
-                        shift_len = min(shift_len, len(self.traj_feat[i]) - j * self.win_stride - self.win_len)
+                        shift_len = min(shift_len, len(tf) - j * self.win_stride - self.win_len)
                     pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
         self.pos_map: torch.IntTensor = torch.tensor(pos_map, dtype=torch.int32)
 
@@ -282,8 +283,9 @@ class CorVSPredictDataset(BaseDataset):
         self.freq = freq_in_hz
         self.win_len, self.win_stride = win_len, win_stride
 
-        traj_data = load_traj_data(Path(path) / "trajectory", (traj_track_id, ), start=start, stop=stop)
-        sensor_data = load_sensor_data(Path(path) / "sensor", sensor_worker_id, start, stop)
+        path = Path(path)
+        traj_data = load_traj_data(path / "trajectory", (traj_track_id, ), start=start, stop=stop)
+        sensor_data = load_sensor_data(path / "sensor", sensor_worker_id, start, stop)
 
         self.time: list[torch.DoubleTensor] = []
         self.traj_feat: list[torch.FloatTensor] = []
@@ -330,8 +332,8 @@ class CorVSPredictDataset(BaseDataset):
     @property
     def tot_time_in_sec(self) -> float:
         tot_time = 0
-        for f in self.traj_feat:
-            tot_time += len(f) / self.freq
+        for tf in self.traj_feat:
+            tot_time += len(tf) / self.freq
         return tot_time
 
 class CorVSPredictDataModule(L.LightningDataModule):
@@ -340,7 +342,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
         self.save_hyperparameters(hparams)
         self.datasets: dict[Literal["pred"], CorVSPredictDataset] = {}
         self.root_path = path
-        self.traj_track_id, self.sensor_worker_id = traj_track_id, sensor_worker_id
+        self.track_id, self.worker_id = traj_track_id, sensor_worker_id
 
         self.start = utils.any_to_unix(start, utils.jst)
         self.stop = utils.any_to_unix(stop, utils.jst)
@@ -351,8 +353,8 @@ class CorVSPredictDataModule(L.LightningDataModule):
                 if "pred" not in self.datasets.keys():
                     self.datasets["pred"] = CorVSPredictDataset(
                         self.root_path,
-                        self.traj_track_id,
-                        self.sensor_worker_id,
+                        self.track_id,
+                        self.worker_id,
                         self.hparams["freq"],
                         self.hparams["smooth"],
                         self.hparams["min_input_len"],
