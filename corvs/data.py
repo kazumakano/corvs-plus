@@ -112,19 +112,14 @@ class CorVSFitDataset(BaseFitDataset):
                         self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
         rng = random.default_rng(seed=seed)
-        self.pos_map = self._build_pos_map(pos_factor, pos_mask, pos_shift_in_sec, rng)
-        self.neg_map = self._build_neg_map(neg_ratio, rng)
 
-        self._cache(cache_path)
-
-    def _build_pos_map(self, pos_factor: int, pos_mask: float, pos_shift_in_sec: float, rng: random.Generator) -> torch.IntTensor:
-        map = []
+        pos_map = []
         for i in tqdm.tqdm(range(len(self.traj_feat)), "building positive pairs"):
             valid_len = min(self.win_len, len(self.traj_feat[i]))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
             win_num = max(1, (len(self.traj_feat[i]) - self.win_len) // self.win_stride + 1)
             for j in range(win_num):
-                map.append((i, j, valid_len, 0, 0, 0))
+                pos_map.append((i, j, valid_len, 0, 0, 0))
                 for _ in range(pos_factor - 1):
                     mask_pos = rng.integers(valid_len - mask_len, endpoint=True)
                     if pos_shift_in_sec is None or valid_len < self.win_len:
@@ -133,22 +128,21 @@ class CorVSFitDataset(BaseFitDataset):
                         shift_len = round(rng.normal(scale=self.freq * pos_shift_in_sec))
                         shift_len = max(-j * self.win_stride, shift_len)
                         shift_len = min(shift_len, len(self.traj_feat[i]) - j * self.win_stride - self.win_len)
-                    map.append((i, j, valid_len, mask_len, mask_pos, shift_len))
-        map = torch.tensor(map, dtype=torch.int32)
-        return map
+                    pos_map.append((i, j, valid_len, mask_len, mask_pos, shift_len))
+        self.pos_map: torch.IntTensor = torch.tensor(pos_map, dtype=torch.int32)
 
-    def _build_neg_map(self, neg_ratio: int, rng: random.Generator) -> torch.IntTensor:
-        map = []
+        neg_map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[:, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[:, :3]):
                 if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_stride:
-                    map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
+                    neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-        map = torch.tensor(map, dtype=torch.int32)
-        return map
+        self.neg_map = torch.tensor(neg_map, dtype=torch.int32)
+
+        self._cache(cache_path)
 
     def _cache(self, path: FileLike) -> None:
         torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
