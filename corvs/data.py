@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
 import torch
+from torch.types import FileLike
 import tqdm
 from lightning import pytorch as L
 from numpy import linalg, random
@@ -69,7 +70,7 @@ class CorVSFitDataset(BaseFitDataset):
     def __init__(
             self,
             root_path: PathLike,
-            cache_path: PathLike,
+            cache_path: FileLike,
             traj_track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
@@ -84,7 +85,6 @@ class CorVSFitDataset(BaseFitDataset):
             stop: Optional[float] = None,
             seed: Optional[int] = None
         ) -> None:
-        self.cache_path = Path(cache_path)
         self.freq = freq_in_hz
         self.win_len, self.win_stride = win_len, win_stride
 
@@ -112,14 +112,19 @@ class CorVSFitDataset(BaseFitDataset):
                         self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
         rng = random.default_rng(seed=seed)
+        self.pos_map = self._build_pos_map(pos_factor, pos_mask, pos_shift_in_sec, rng)
+        self.neg_map = self._build_neg_map(neg_ratio, rng)
 
-        pos_map = []
+        self._cache(cache_path)
+
+    def _build_pos_map(self, pos_factor: int, pos_mask: float, pos_shift_in_sec: float, rng: random.Generator) -> torch.IntTensor:
+        map = []
         for i in tqdm.tqdm(range(len(self.traj_feat)), "building positive pairs"):
             valid_len = min(self.win_len, len(self.traj_feat[i]))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
             win_num = max(1, (len(self.traj_feat[i]) - self.win_len) // self.win_stride + 1)
             for j in range(win_num):
-                pos_map.append((i, j, valid_len, 0, 0, 0))
+                map.append((i, j, valid_len, 0, 0, 0))
                 for _ in range(pos_factor - 1):
                     mask_pos = rng.integers(valid_len - mask_len, endpoint=True)
                     if pos_shift_in_sec is None or valid_len < self.win_len:
@@ -128,22 +133,26 @@ class CorVSFitDataset(BaseFitDataset):
                         shift_len = round(rng.normal(scale=self.freq * pos_shift_in_sec))
                         shift_len = max(-j * self.win_stride, shift_len)
                         shift_len = min(shift_len, len(self.traj_feat[i]) - j * self.win_stride - self.win_len)
-                    pos_map.append((i, j, valid_len, mask_len, mask_pos, shift_len))
-        self.pos_map: torch.IntTensor = torch.tensor(pos_map, dtype=torch.int32)
+                    map.append((i, j, valid_len, mask_len, mask_pos, shift_len))
+        map = torch.tensor(map, dtype=torch.int32)
+        return map
 
-        neg_map = []
+    def _build_neg_map(self, neg_ratio: int, rng: random.Generator) -> torch.IntTensor:
+        map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[:, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[:, :3]):
                 if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_stride:
-                    neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
+                    map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-        self.neg_map: torch.IntTensor = torch.tensor(neg_map, dtype=torch.int32)
+        map = torch.tensor(map, dtype=torch.int32)
+        return map
 
-        torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), self.cache_path)
-        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(self.cache_path, mmap=True)
+    def _cache(self, path: FileLike) -> None:
+        torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
+        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(path, mmap=True)
 
     def __getitem__(self, idx: int) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.BoolTensor, torch.FloatTensor]:
         time_idx = torch.arange(self.win_len, dtype=torch.int32)
@@ -191,16 +200,17 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.start = utils.any_to_unix(start, utils.jst)
         self.stop = utils.any_to_unix(stop, utils.jst)
 
-        self._split(split_ratio)
+        self.track_ids = self._split(split_ratio)
 
-    def _split(self, ratio: tuple[float, float, float]) -> None:
+    def _split(self, ratio: tuple[float, float, float]) -> dict[Literal["train", "val", "test"], NDArray[np.uint32]]:
         traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
         label = preprocess.rand_split(traj_data["label"].unique(), ratio, random.default_rng(seed=self.seed))
-        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
+        track_ids = {
             "train": traj_data[traj_data["label"].isin(label[0])]["track"].unique(),
             "val": traj_data[traj_data["label"].isin(label[1])]["track"].unique(),
             "test": traj_data[traj_data["label"].isin(label[2])]["track"].unique()
         }
+        return track_ids
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
