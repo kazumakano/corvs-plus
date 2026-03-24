@@ -22,9 +22,9 @@ SENSOR_FREQ = 100
 
 def load_traj_data(path: Path, track_ids: Optional[Iterable[int]] = None, label_ids: Optional[Iterable[int]] = None, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
     all_data = []
-    for f in sorted(path.glob("trajectory_????????_??_??.csv")):
+    for p in sorted(path.glob("trajectory_????????_??_??.csv")):
         data = pd.read_csv(
-            f,
+            p,
             usecols=("time", "track", "x", "y", "label"),
             dtype={"track": np.uint32, "label": np.uint32},
             engine="pyarrow"
@@ -48,8 +48,8 @@ def load_traj_data(path: Path, track_ids: Optional[Iterable[int]] = None, label_
 
 def load_sensor_data(path: Path, worker_id: int, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
     all_data = []
-    for f in sorted(path.glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
-        data = pd.read_csv(f, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow")
+    for p in sorted(path.glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
+        data = pd.read_csv(p, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow")
         if start is not None:
             data = data[data["time"] >= start]
         if stop is not None:
@@ -140,7 +140,6 @@ class CorVSFitDataset(BaseFitDataset):
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-            break
         self.neg_map: torch.IntTensor = torch.tensor(neg_map, dtype=torch.int32)
 
         torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), self.cache_path)

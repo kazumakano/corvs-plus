@@ -245,7 +245,7 @@ scipy==1.17.1
     # via corvs
 sentencepiece==0.2.1
     # via torchtune
-setuptools==81.0.0
+setuptools==80.8.0
     # via
     #   corvs
     #   tensorboard

@@ -104,7 +104,7 @@ class CorVSNet(BaseModule):
             time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=self.device)    # (time, )
             invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values    # (batch, )
             invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values    # (batch, )
-            valid_mask &= (time_idx[:len(hidden)].unsqueeze(0) < invisible_min_idx.unsqueeze(1)) | (invisible_max_idx.unsqueeze(1) < time_idx[-len(hidden):].unsqueeze(0))
+            valid_mask = valid_mask & ((time_idx[:len(hidden)].unsqueeze(0) < invisible_min_idx.unsqueeze(1)) | (invisible_max_idx.unsqueeze(1) < time_idx[-len(hidden):].unsqueeze(0)))
 
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
