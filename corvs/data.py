@@ -115,10 +115,12 @@ class CorVSFitDataset(BaseFitDataset):
         rng = random.default_rng(seed=seed)
 
         pos_map = []
+        max_win_num = 0
         for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs")):
             valid_len = min(self.win_len, len(tf))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
             win_num = max(1, (len(tf) - self.win_len) // self.win_stride + 1)
+            max_win_num = max(win_num, max_win_num)
             for j in range(win_num):
                 pos_map.append((i, j, valid_len, 0, 0, 0))
                 for _ in range(pos_factor - 1):
@@ -130,7 +132,7 @@ class CorVSFitDataset(BaseFitDataset):
                         shift_len = max(-j * self.win_stride, shift_len)
                         shift_len = min(shift_len, len(tf) - j * self.win_stride - self.win_len)
                     pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
-        self.pos_map: torch.IntTensor = torch.tensor(pos_map, dtype=torch.int32)
+        self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
 
         neg_map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
@@ -141,7 +143,7 @@ class CorVSFitDataset(BaseFitDataset):
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-        self.neg_map: torch.IntTensor = torch.tensor(neg_map, dtype=torch.int32)
+        self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
 
         self.cache(cache_path)
 
@@ -192,8 +194,8 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.root_path = Path(path)
         self.seed = seed
 
-        self.start = utils.any_to_unix(start, utils.jst)
-        self.stop = utils.any_to_unix(stop, utils.jst)
+        self.start = utils.to_unix(start, utils.jst)
+        self.stop = utils.to_unix(stop, utils.jst)
 
         traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
         label = preprocess.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
@@ -291,6 +293,7 @@ class CorVSPredictDataset(BaseDataset):
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         map = []
+        max_win_num = 0
         if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
             meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
 
@@ -308,11 +311,12 @@ class CorVSPredictDataset(BaseDataset):
 
                     valid_len = min(self.win_len, len(synced_time))
                     win_num = max(1, (len(synced_time) - self.win_len) // self.win_stride + 1)
+                    max_win_num = max(win_num, max_win_num)
                     self.time.append(torch.empty(win_num, dtype=torch.float64))
                     for j in range(win_num):
                         self.time[-1][j] = synced_time[j * self.win_stride]
                         map.append((i, j, valid_len))
-        self.map: torch.IntTensor = torch.tensor(map, dtype=torch.int32)
+        self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max_win_num))
 
         if len(traj_data) > 0:
             self.label: torch.FloatTensor = torch.tensor(traj_data["label"].iat[0].item() == sensor_worker_id, dtype=torch.float32)
@@ -344,8 +348,8 @@ class CorVSPredictDataModule(L.LightningDataModule):
         self.root_path = path
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
 
-        self.start = utils.any_to_unix(start, utils.jst)
-        self.stop = utils.any_to_unix(stop, utils.jst)
+        self.start = utils.to_unix(start, utils.jst)
+        self.stop = utils.to_unix(stop, utils.jst)
 
     def setup(self, stage: Literal["predict"]) -> None:
         match stage:
