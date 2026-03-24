@@ -19,8 +19,8 @@ def train(data_path: PathLike, param_path: PathLike, split_ratio: tuple[float, f
 
     cbs = [
         ArgsWriter(data_path=data_path, param_path=param_path, split_ratio=split_ratio, start=start, stop=stop, seed=seed),
-        ErrWriter(),
         BestMetricsWriter("val_loss"),
+        ErrWriter(),
         callbacks.LearningRateMonitor(),
         callbacks.ModelCheckpoint(monitor="val_loss"),
         callbacks.ModelCheckpoint(filename="last")
