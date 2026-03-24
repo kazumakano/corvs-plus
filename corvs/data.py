@@ -9,7 +9,7 @@ import tqdm
 from lightning import pytorch as L
 from numpy import linalg, random
 from numpy.typing import NDArray
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
@@ -194,17 +194,13 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.start = utils.any_to_unix(start, utils.jst)
         self.stop = utils.any_to_unix(stop, utils.jst)
 
-        self.track_ids = self._split(split_ratio)
-
-    def _split(self, ratio: tuple[float, float, float]) -> dict[Literal["train", "val", "test"], NDArray[np.uint32]]:
         traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
-        label = preprocess.rand_split(traj_data["label"].unique(), ratio, random.default_rng(seed=self.seed))
-        track_ids = {
+        label = preprocess.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
+        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
             "train": traj_data[traj_data["label"].isin(label[0])]["track"].unique(),
             "val": traj_data[traj_data["label"].isin(label[1])]["track"].unique(),
             "test": traj_data[traj_data["label"].isin(label[2])]["track"].unique()
         }
-        return track_ids
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
@@ -254,6 +250,11 @@ class CorVSFitDataModule(L.LightningDataModule):
                         stop=self.stop,
                         seed=self.seed
                     )
+
+        self.save_split()
+
+    def save_split(self) -> None:
+        OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
     def train_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["train"], batch_size=self.hparams["batch_size"], shuffle=True, num_workers=self.hparams["num_workers"], pin_memory=True, drop_last=True, persistent_workers=True)
