@@ -44,11 +44,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data_path", default="dataset/", help="path to dataset root directory")
     parser.add_argument("-p", "--param_path", default="configs/hparams.yaml", help="path to hyperparameter file")
-    parser.add_argument("-s", "--split_ratio", nargs=3, default=(0.8, 0.2, 0), type=float, help="data splitting ratios", metavar="RATIO")
+    parser.add_argument("-s", "--split_ratio", nargs=3, default=(0.8, 0.2, 0), type=float, help="data splitting ratio", metavar="PROP")
     parser.add_argument("-e", "--exp_name", help="experiment name", metavar="NAME")
     parser.add_argument("--from", help="start datetime in JST", metavar="DATETIME", dest="from_")
     parser.add_argument("--to", help="end datetime in JST", metavar="DATETIME")
-    parser.add_argument("--seed", help="random seed")
+    parser.add_argument("--seed", type=int, help="random seed")
     args = parser.parse_args()
 
     train(args.data_path, args.param_path, args.split_ratio, args.exp_name, args.from_, args.to, args.seed)
