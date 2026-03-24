@@ -251,11 +251,6 @@ class CorVSFitDataModule(L.LightningDataModule):
                         seed=self.seed
                     )
 
-        self.save_split()
-
-    def save_split(self) -> None:
-        OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
-
     def train_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["train"], batch_size=self.hparams["batch_size"], shuffle=True, num_workers=self.hparams["num_workers"], pin_memory=True, drop_last=True, persistent_workers=True)
 
@@ -264,6 +259,9 @@ class CorVSFitDataModule(L.LightningDataModule):
 
     def test_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["test"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
+
+    def save_split(self) -> None:
+        OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
 class CorVSPredictDataset(BaseDataset):
     item_idx = {DataItem.TIME: 0, DataItem.TRAJ_FEAT: 1, DataItem.SENOSR_FEAT: 2, DataItem.VALID_MASK: 3, DataItem.LABEL: 4}

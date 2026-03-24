@@ -38,6 +38,8 @@ def train(data_path: PathLike, param_path: PathLike, split_ratio: tuple[float, f
 
     trainer.fit(model, datamodule=datamodule)
 
+    datamodule.save_split()
+
 if __name__ == "__main__":
     import argparse
 
