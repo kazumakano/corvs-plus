@@ -35,11 +35,11 @@ class CorVSNet(BaseModule):
             self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
             xformer_time_len += 1
         match self.hparams["xformer_pos_enc"]:
-            case "learnable":
-                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
-                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "sinusoidal":
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
+                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
+            case "learnable":
+                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "rope":
                 xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
@@ -93,33 +93,34 @@ class CorVSNet(BaseModule):
         if self.hparams["cls_tok"]:
             cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
             hidden = torch.cat((cls_tok, hidden))
-        if self.hparams["xformer_pos_enc"] in ("learnable", "sinusoidal"):
+        if self.hparams["xformer_pos_enc"] in ("sinusoidal", "learnable"):
             pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
 
-        valid_mask = valid_mask[:, -len(hidden):]
+        valid_mask = valid_mask[:, -hidden.shape[0]:]
         if visible_mask is not None:
             if not self._mask_is_contig(~visible_mask):
                 raise ValueError("invisible region must be contiguous")
             time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=self.device)    # (time, )
-            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values    # (batch, )
+            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values     # (batch, )
             invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values    # (batch, )
-            valid_mask = valid_mask & ((time_idx[:len(hidden)].unsqueeze(0) < invisible_min_idx.unsqueeze(1)) | (invisible_max_idx.unsqueeze(1) < time_idx[-len(hidden):].unsqueeze(0)))
+            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
+            valid_mask = valid_mask & visible_mask
 
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
         hidden = einops.rearrange(hidden, "t b d -> b d t")
         match self.hparams["time_agg"]:
-            case "attn_pool":
-                hidden = self.pool(hidden, valid_mask)
             case "avg_pool":
                 hidden = masked_global_avg_pool1d(hidden, valid_mask)
-            case "cls_tok":
-                hidden = hidden[:, :, 0]
             case "max_pool":
                 hidden = masked_global_max_pool1d(hidden, valid_mask)
             case "softmax_pool":
                 hidden = masked_global_softmax_pool1d(hidden, valid_mask)
+            case "attn_pool":
+                hidden = self.pool(hidden, valid_mask)
+            case "cls_tok":
+                hidden = hidden[:, :, 0]
             case _:
                 raise ValueError(f"unknown time aggregation {self.hparams['time_agg']} was specified")
 
@@ -128,7 +129,7 @@ class CorVSNet(BaseModule):
         return output
 
     def _mask_is_contig(self, mask: torch.BoolTensor) -> bool:
-        diff = mask.diff(prepend=torch.zeros((len(mask), 1), dtype=torch.bool, device=self.device))
+        diff = mask.diff(prepend=torch.zeros(mask.shape[0], 1, dtype=torch.bool, device=self.device))
         diff_cnt = diff.count_nonzero(dim=1)
         return (diff_cnt < 3).all().item()
 
