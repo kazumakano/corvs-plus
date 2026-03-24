@@ -142,9 +142,9 @@ class CorVSFitDataset(BaseFitDataset):
                         break
         self.neg_map: torch.IntTensor = torch.tensor(neg_map, dtype=torch.int32)
 
-        self._cache(cache_path)
+        self.cache(cache_path)
 
-    def _cache(self, path: FileLike) -> None:
+    def cache(self, path: FileLike) -> None:
         torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
         self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(path, mmap=True)
 
