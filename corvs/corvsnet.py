@@ -38,7 +38,7 @@ class CorVSNet(BaseModule):
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "learnable":
-                self.pos_emb  = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
+                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "rope":
                 xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
@@ -93,7 +93,7 @@ class CorVSNet(BaseModule):
         hidden = einops.rearrange(hidden, "b d t -> t b d")
         if self.hparams["cls_tok"]:
             cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
-            hidden  = torch.cat((cls_tok, hidden))
+            hidden = torch.cat((cls_tok, hidden))
         if self.hparams["xformer_pos_enc"] in ("sinusoidal", "learnable"):
             pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
@@ -102,11 +102,11 @@ class CorVSNet(BaseModule):
         if visible_mask is not None:
             if not self._mask_is_contig(~visible_mask):
                 raise ValueError("invisible region must be contiguous")
-            time_idx          = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)    # (time, )
-            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values                      # (batch, )
-            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values                     # (batch, )
-            visible_mask      = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
-            valid_mask        = valid_mask & visible_mask
+            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)    # (time, )
+            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values             # (batch, )
+            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values            # (batch, )
+            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
+            valid_mask = valid_mask & visible_mask
 
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
@@ -167,14 +167,16 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         return prob, rel
 
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
-        cnt            = valid_mask.count_nonzero(dim=1)
-        spd_mean       = (valid_mask * spd).sum(dim=1) / cnt
-        spd_var        = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        linacc_mean    = (valid_mask * linacc).sum(dim=1) / cnt
-        linacc_var     = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        cnt         = valid_mask.count_nonzero(dim=1)
+        spd_mean    = (valid_mask * spd).sum(dim=1) / cnt
+        spd_var     = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
+        linacc_var  = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+
         spd_run_var    = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
         linacc_run_var = self.bn.running_var[self.in_mets.index(SensorMet.LINACC_NORM)]
-        output         = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
+
+        output = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
 
         return output
 
