@@ -14,9 +14,10 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
 from torch.utils import data
+
 from corvs import preprocess as preproc
 from corvs import utils
-from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMet, TrajMet
+from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredictDataModule, Modality, SensorMet, TrajMet
 
 TRAJ_FREQ   = 2.5
 TRAJ_RESOL  = 0.01
@@ -183,7 +184,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     def neg_ratio(self) -> float:
         return len(self.neg_map) / len(self.pos_map)
 
-class CorVSFitDataModule(L.LightningDataModule):
+class CorVSFitDataModule(BaseFitDataModule):
     def __init__(
             self,
             path: PathLike,
@@ -194,18 +195,15 @@ class CorVSFitDataModule(L.LightningDataModule):
             stop: Optional[float | str | datetime] = None,
             seed: Optional[int] = None
         ) -> None:
-        super().__init__()
+        super().__init__(hparams)
 
         if (split_track_ids is None) == (split_ratio is None):
             raise ValueError("exactly one of track IDs or ratio must be given")
 
-        self.save_hyperparameters(hparams)
-        self.datasets: dict[Literal["train", "val", "test"], CorVSFitDataset] = {}
         self.root_path = Path(path)
-        self.seed = seed
-
         self.start = utils.to_unix(start, utils.JST)
         self.stop  = utils.to_unix(stop, utils.JST)
+        self.seed = seed
 
         if split_track_ids is None:
             traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
@@ -271,15 +269,6 @@ class CorVSFitDataModule(L.LightningDataModule):
                         stop=self.stop,
                         seed=self.seed
                     )
-
-    def train_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["train"], batch_size=self.hparams["batch_size"], shuffle=True, num_workers=self.hparams["num_workers"], pin_memory=True, drop_last=True, persistent_workers=True)
-
-    def val_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["val"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True, persistent_workers=True)
-
-    def test_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["test"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
 
     def save_split(self) -> None:
         OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
@@ -358,14 +347,12 @@ class CorVSPredictDataset(CorVSDataset):
             tot_time += len(tf) / self.freq
         return tot_time
 
-class CorVSPredictDataModule(L.LightningDataModule):
+class CorVSPredictDataModule(BasePredictDataModule):
     def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
-        super().__init__()
-        self.save_hyperparameters(hparams)
-        self.datasets: dict[Literal["pred"], CorVSPredictDataset] = {}
+        super().__init__(hparams)
+
         self.root_path = Path(path)
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
-
         self.start = utils.to_unix(start, utils.JST)
         self.stop  = utils.to_unix(stop, utils.JST)
 
@@ -384,6 +371,3 @@ class CorVSPredictDataModule(L.LightningDataModule):
                         start=self.start,
                         stop=self.stop
                     )
-
-    def predict_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["pred"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
