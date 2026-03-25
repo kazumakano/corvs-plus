@@ -216,7 +216,11 @@ class CorVSFitDataModule(L.LightningDataModule):
                 "test": traj_data[traj_data["label"].isin(label[2])]["track"].unique()
             }
         else:
-            self.track_ids: dict[Literal["train", "val", "test"], Collection[int]] = {"train": traj_track_ids[0], "val": traj_track_ids[1], "test": traj_track_ids[2]}
+            self.track_ids = {
+                "train": np.asanyarray(traj_track_ids[0], dtype=np.uint32),
+                "val": np.asanyarray(traj_track_ids[1], dtype=np.uint32),
+                "test": np.asanyarray(traj_track_ids[2], dtype=np.uint32)
+            }
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
@@ -277,7 +281,7 @@ class CorVSFitDataModule(L.LightningDataModule):
         return data.DataLoader(self.datasets["test"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
 
     def save_split(self) -> None:
-        OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
+        OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
 class CorVSPredictDataset(CorVSDataset):
     modalities = Modality.TIME, Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.LABEL
