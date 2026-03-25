@@ -8,7 +8,7 @@ import torch
 import tqdm
 from lightning import pytorch as L
 from numpy import linalg, random
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from omegaconf import DictConfig, OmegaConf
 from scipy import ndimage
 from scipy.interpolate import interp1d
@@ -188,7 +188,7 @@ class CorVSFitDataModule(L.LightningDataModule):
             self,
             path: PathLike,
             hparams: dict[str, Any] | DictConfig,
-            split_track_ids: Optional[tuple[Collection[int], Collection[int], Collection[int]]] = None,
+            split_track_ids: Optional[tuple[ArrayLike, ArrayLike, ArrayLike]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
             stop: Optional[float | str | datetime] = None,
