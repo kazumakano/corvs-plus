@@ -24,8 +24,23 @@ class DataItem(enum.Enum):
     VISIBLE_MASK = enum.auto()
     LABEL        = enum.auto()
 
+class TrajFeat(enum.Enum):
+    SPD       = enum.auto()
+    TURN_RATE = enum.auto()
+
+class SensorFeat(enum.Enum):
+    LINACC_NORM = enum.auto()
+    ACC_X       = enum.auto()
+    ACC_Y       = enum.auto()
+    ACC_Z       = enum.auto()
+    GYRO_X      = enum.auto()
+    GYRO_Y      = enum.auto()
+    GYRO_Z      = enum.auto()
+
 class BaseDataset(data.Dataset):
-    items: ClassVar[Sequence[DataItem]]
+    items:        ClassVar[Sequence[DataItem]]
+    traj_feats:   ClassVar[Sequence[TrajFeat]]
+    sensor_feats: ClassVar[Sequence[SensorFeat]]
 
 class BaseFitDataset(BaseDataset, abc.ABC):
     @property
@@ -38,6 +53,8 @@ class BaseModule(L.LightningModule):
         super().__init__()
         self.save_hyperparameters(hparams)
         self.data_items = dataset_cls.items
+        self.traj_feats = dataset_cls.traj_feats
+        self.sensor_feats = dataset_cls.sensor_feats
 
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:

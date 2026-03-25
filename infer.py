@@ -6,8 +6,7 @@ from lightning import pytorch as L
 from omegaconf import OmegaConf
 from rich.console import Console
 from rich.table import Table
-from corvs import CorVSNetPredictor, CorVSPredictDataModule
-from corvs.data import CorVSPredictDataset
+from corvs import CorVSNetPredictor, CorVSPredictDataModule, CorVSPredictDataset
 
 
 def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredictDataset, prob: torch.FloatTensor, rel: torch.FloatTensor) -> None:
@@ -19,7 +18,7 @@ def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
-    model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams)
+    model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, dataset_cls=CorVSPredictDataset)
     datamodule = CorVSPredictDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, stop)
     trainer = L.Trainer(devices=1, logger=False)
 

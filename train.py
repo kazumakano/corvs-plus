@@ -6,7 +6,7 @@ import torch
 from lightning import pytorch as L
 from lightning.pytorch import callbacks, loggers
 from omegaconf import OmegaConf
-from corvs import CorVSFitDataModule, CorVSNetFitter
+from corvs import CorVSFitDataModule, CorVSFitDataset, CorVSNetFitter
 from corvs.callbacks import ArgsWriter, BestMetricsWriter, ErrWriter
 
 
@@ -14,7 +14,7 @@ def train(data_path: PathLike, param_path: PathLike, split_ratio: tuple[float, f
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
-    model = CorVSNetFitter(hparams)
+    model = CorVSNetFitter(hparams, CorVSFitDataset)
     datamodule = CorVSFitDataModule(data_path, hparams, split_ratio, start, stop, seed)
 
     cbs = [

@@ -38,7 +38,7 @@ FloatingT = TypeVar("FloatingT", bound=np.floating)
 def to_convex(ang: NDArray[FloatingT]) -> NDArray[FloatingT]:
     return (ang + math.pi) % (2 * math.pi) - math.pi
 
-def loc_to_ang_vel(loc: ArrayLike, freq_in_hz: float) -> NDArray:
+def loc_to_turn_rate(loc: ArrayLike, freq_in_hz: float) -> NDArray:
     vec = np.diff(loc, axis=0)
     dir = np.arctan2(vec[:, 1], vec[:, 0])
     ang = to_convex(np.diff(dir))
@@ -46,20 +46,20 @@ def loc_to_ang_vel(loc: ArrayLike, freq_in_hz: float) -> NDArray:
     return ang_vel
 
 @overload
-def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, freq_in_hz: float) -> tuple[NDArray[np.float64], ...]:
+def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, freq_in_hz: float, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
     ...
 
 @overload
-def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, time_3: ArrayLike, val_3: ArrayLike, freq_in_hz: float) -> tuple[NDArray[np.float64], ...]:
+def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, time_3: ArrayLike, val_3: ArrayLike, freq_in_hz: float, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
     ...
 
-def sync(*args: float | ArrayLike) -> tuple[NDArray[np.float64], ...]:
+def sync(*args: ArrayLike | float, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
     time_list = [np.asanyarray(a) for a in args[:-1:2]]
     val_list = args[1::2]
     freq = args[-1]
 
     time = np.arange(max(t[0] for t in time_list), min(t[-1] for t in time_list), step=1 / freq, dtype=np.float64)
-    val_list = [interp1d(t, v, axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(time) for t, v in zip(time_list, val_list)]
+    val_list = [interp1d(t, v, kind=kind, axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(time) for t, v in zip(time_list, val_list)]
 
     return time, *val_list
 

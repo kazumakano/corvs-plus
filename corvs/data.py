@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d
 from torch.types import FileLike
 from torch.utils import data
 from corvs import preprocess, utils
-from corvs.base import BaseDataset, BaseFitDataset, DataItem
+from corvs.base import BaseDataset, BaseFitDataset, DataItem, SensorFeat, TrajFeat
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
@@ -64,7 +64,11 @@ def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = No
 
     return all_data
 
-class CorVSFitDataset(BaseFitDataset):
+class CorVSDataset(BaseDataset):
+    traj_feats   = TrajFeat.SPD, TrajFeat.TURN_RATE
+    sensor_feats = SensorFeat.LINACC_NORM, SensorFeat.ACC_X, SensorFeat.ACC_Y, SensorFeat.ACC_Z, SensorFeat.GYRO_X, SensorFeat.GYRO_Y, SensorFeat.GYRO_Z
+
+class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     items = DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.VISIBLE_MASK, DataItem.LABEL
 
     def __init__(
@@ -106,10 +110,10 @@ class CorVSFitDataset(BaseFitDataset):
                     if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
                         loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                         spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                        ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                        turn_rate = ndimage.gaussian_filter1d(preprocess.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
 
-                        synced_spd, synced_ang_vel, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, self.freq)[1:]
-                        self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_ang_vel.astype(np.float32)))))
+                        synced_spd, synced_turn_rate, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)[1:]
+                        self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
                         self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
         rng = random.default_rng(seed=seed)
@@ -266,7 +270,7 @@ class CorVSFitDataModule(L.LightningDataModule):
     def save_split(self) -> None:
         OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
-class CorVSPredictDataset(BaseDataset):
+class CorVSPredictDataset(CorVSDataset):
     items = DataItem.TIME, DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.LABEL
 
     def __init__(
@@ -303,10 +307,10 @@ class CorVSPredictDataset(BaseDataset):
                 if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                     spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                    ang_vel = ndimage.gaussian_filter1d(preprocess.loc_to_ang_vel(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                    turn_rate = ndimage.gaussian_filter1d(preprocess.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
 
-                    synced_time, synced_spd, synced_ang_vel, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], ang_vel, sensor_data["time"], meas, self.freq)
-                    self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_ang_vel.astype(np.float32)))))
+                    synced_time, synced_spd, synced_turn_rate, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)
+                    self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
                     self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
                     valid_len = min(self.win_len, len(synced_time))
