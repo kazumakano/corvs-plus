@@ -54,7 +54,7 @@ def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLik
     ...
 
 def sync(*args: ArrayLike | float, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
-    time_list = [np.asanyarray(a) for a in args[:-1:2]]
+    time_list = [np.asanyarray(a, dtype=np.float64) for a in args[:-1:2]]
     val_list = args[1::2]
     freq = args[-1]
 
