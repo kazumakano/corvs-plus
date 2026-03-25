@@ -20,12 +20,11 @@ class CorVSNet(BaseModule):
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
-        in_ch = len(self.traj_feats) + len(self.sensor_feats)
-        self.bn = MaskedBatchNorm1d(in_ch, affine=False)
+        self.bn = MaskedBatchNorm1d(len(self.in_feats), affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(in_ch, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
+            self.cnn = SeparableDualCNN(len(self.in_feats), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
         else:
-            self.cnn = DualCNN(in_ch, self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
+            self.cnn = DualCNN(len(self.in_feats), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
         if self.hparams["min_input_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
@@ -174,8 +173,8 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
         linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        spd_run_var = self.bn.running_var[self.traj_feats.index(TrajFeat.SPD)]
-        linacc_run_var = self.bn.running_var[len(self.traj_feats) + self.sensor_feats.index(SensorFeat.LINACC_NORM)]
+        spd_run_var = self.bn.running_var[self.in_feats.index(TrajFeat.SPD)]
+        linacc_run_var = self.bn.running_var[self.in_feats.index(SensorFeat.LINACC_NORM)]
         output = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
 
         return output

@@ -56,6 +56,10 @@ class BaseModule(L.LightningModule):
         self.traj_feats = dataset_cls.traj_feats
         self.sensor_feats = dataset_cls.sensor_feats
 
+    @property
+    def in_feats(self) -> tuple[TrajFeat | SensorFeat, ...]:
+        return tuple(self.traj_feats) + tuple(self.sensor_feats)
+
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         if stage == "fit":
