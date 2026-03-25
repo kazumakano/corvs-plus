@@ -45,7 +45,7 @@ class DualCNN(nn.Module):
 
         head_len = math.floor((hidden_s.shape[2] - hidden_l.shape[2]) / 2)
         tail_len = math.ceil((hidden_s.shape[2] - hidden_l.shape[2]) / 2)
-        output   = torch.cat((hidden_s[:, :, head_len:-tail_len], hidden_l), dim=1)
+        output = torch.cat((hidden_s[:, :, head_len:-tail_len], hidden_l), dim=1)
 
         return output
 
