@@ -349,7 +349,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
         super().__init__()
         self.save_hyperparameters(hparams)
         self.datasets: dict[Literal["pred"], CorVSPredictDataset] = {}
-        self.root_path = path
+        self.root_path = Path(path)
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
 
         self.start = utils.to_unix(start, utils.jst)

@@ -18,7 +18,7 @@ def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
-    model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, dataset_cls=CorVSPredictDataset)
+    model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredictDataset)
     datamodule = CorVSPredictDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, stop)
     trainer = L.Trainer(devices=1, logger=False)
 

@@ -52,13 +52,13 @@ class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.modalities = dataset_cls.modalities
-        self.traj_metrics = dataset_cls.traj_metrics
-        self.sensor_metrics = dataset_cls.sensor_metrics
+        self.modalities = tuple(dataset_cls.modalities)
+        self.traj_metrics = tuple(dataset_cls.traj_metrics)
+        self.sensor_metrics = tuple(dataset_cls.sensor_metrics)
 
     @property
     def in_metrics(self) -> tuple[TrajMetric | SensorMetric, ...]:
-        return tuple(self.traj_metrics) + tuple(self.sensor_metrics)
+        return self.traj_metrics + self.sensor_metrics
 
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
@@ -128,8 +128,8 @@ class BasePredictModule(BaseModule):
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, device: Device = None, **kwargs: Any) -> Self:
-        self = cls(hparams=hparams, **kwargs)
+    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
+        self = cls(hparams=hparams, dataset_cls=dataset_cls, **kwargs)
         safetensors.load_model(self, path)    # device argument does not work with lightning
         self = self.to(device=device).eval()
         return self
