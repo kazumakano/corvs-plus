@@ -20,7 +20,7 @@ class ArgsWriter(L.Callback):
 class BestMetricsWriter(L.Callback):
     def __init__(self, monitor: str, mode: Literal["min", "max"] = "min") -> None:
         self.monitor = monitor
-        self.mode    = mode
+        self.mode = mode
 
         self.best_metrics: dict[str, float] = {}
         match self.mode:

@@ -96,7 +96,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         root_path = Path(root_path)
         all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, stop=stop)
 
-        self.traj_feat: list[torch.FloatTensor] = []
+        self.traj_feat:   list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
@@ -205,7 +205,7 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.seed = seed
 
         self.start = utils.to_unix(start, utils.JST)
-        self.stop = utils.to_unix(stop, utils.JST)
+        self.stop  = utils.to_unix(stop, utils.JST)
 
         if split_track_ids is None:
             traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
@@ -304,11 +304,11 @@ class CorVSPredictDataset(CorVSDataset):
         self.win_len, self.win_stride = win_len, win_stride
 
         path = Path(path)
-        traj_data = load_traj_data(path / "trajectory", (traj_track_id, ), start=start, stop=stop)
+        traj_data   = load_traj_data(path / "trajectory", (traj_track_id, ), start=start, stop=stop)
         sensor_data = load_sensor_data(path / "sensor", sensor_worker_id, start, stop)
 
         self.time: list[torch.DoubleTensor] = []
-        self.traj_feat: list[torch.FloatTensor] = []
+        self.traj_feat:   list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         map = []
         max_win_num = 0
@@ -367,7 +367,7 @@ class CorVSPredictDataModule(L.LightningDataModule):
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
 
         self.start = utils.to_unix(start, utils.JST)
-        self.stop = utils.to_unix(stop, utils.JST)
+        self.stop  = utils.to_unix(stop, utils.JST)
 
     def setup(self, stage: Literal["predict"]) -> None:
         match stage:

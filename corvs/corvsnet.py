@@ -160,16 +160,16 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
 
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
-        prob   = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
-        spd    = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
+        prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
+        spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
         linacc = sensor_input[:, :, self.sensor_mets.index(SensorMet.LINACC_NORM)]
-        rel    = self.rel_estim(spd, linacc, valid_mask)
+        rel = self.rel_estim(spd, linacc, valid_mask)
         return prob, rel
 
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
-        cnt         = valid_mask.count_nonzero(dim=1)
-        spd_mean    = (valid_mask * spd).sum(dim=1) / cnt
-        spd_var     = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        cnt = valid_mask.count_nonzero(dim=1)
+        spd_mean = (valid_mask * spd).sum(dim=1) / cnt
+        spd_var  = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
         linacc_var  = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
 
@@ -181,7 +181,7 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         return output
 
     def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
-        time      = batch[self.modalities.index(Modality.TIME)]
+        time = batch[self.modalities.index(Modality.TIME)]
         prob, rel = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)])
-        label     = batch[self.modalities.index(Modality.LABEL)]
+        label = batch[self.modalities.index(Modality.LABEL)]
         return time, prob, rel, label
