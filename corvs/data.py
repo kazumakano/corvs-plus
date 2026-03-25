@@ -6,15 +6,12 @@ import numpy as np
 import pandas as pd
 import torch
 import tqdm
-from lightning import pytorch as L
 from numpy import linalg, random
 from numpy.typing import ArrayLike, NDArray
 from omegaconf import DictConfig, OmegaConf
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
-from torch.utils import data
-
 from corvs import preprocess as preproc
 from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredictDataModule, Modality, SensorMet, TrajMet
