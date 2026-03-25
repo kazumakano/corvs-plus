@@ -157,9 +157,6 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
-        super().__init__(hparams, dataset_cls)
-
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
         spd = traj_input[:, :, self.traj_feats.index(TrajFeat.SPD)]
