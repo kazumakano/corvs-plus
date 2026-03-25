@@ -16,7 +16,7 @@ from torchtune import training
 from corvs.loss import FocalWithLogitsLoss
 
 
-class DataItem(enum.Enum):
+class Modality(enum.Enum):
     TIME         = enum.auto()
     TRAJ_FEAT    = enum.auto()
     SENSOR_FEAT  = enum.auto()
@@ -24,11 +24,11 @@ class DataItem(enum.Enum):
     VISIBLE_MASK = enum.auto()
     LABEL        = enum.auto()
 
-class TrajFeat(enum.Enum):
+class TrajMetric(enum.Enum):
     SPD       = enum.auto()
     TURN_RATE = enum.auto()
 
-class SensorFeat(enum.Enum):
+class SensorMetric(enum.Enum):
     LINACC_NORM = enum.auto()
     ACC_X       = enum.auto()
     ACC_Y       = enum.auto()
@@ -38,9 +38,9 @@ class SensorFeat(enum.Enum):
     GYRO_Z      = enum.auto()
 
 class BaseDataset(data.Dataset):
-    items:        ClassVar[Sequence[DataItem]]
-    traj_feats:   ClassVar[Sequence[TrajFeat]]
-    sensor_feats: ClassVar[Sequence[SensorFeat]]
+    modalities:     ClassVar[Sequence[Modality]]
+    traj_metrics:   ClassVar[Sequence[TrajMetric]]
+    sensor_metrics: ClassVar[Sequence[SensorMetric]]
 
 class BaseFitDataset(BaseDataset, abc.ABC):
     @property
@@ -52,13 +52,13 @@ class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.data_items = dataset_cls.items
-        self.traj_feats = dataset_cls.traj_feats
-        self.sensor_feats = dataset_cls.sensor_feats
+        self.modalities = dataset_cls.modalities
+        self.traj_metrics = dataset_cls.traj_metrics
+        self.sensor_metrics = dataset_cls.sensor_metrics
 
     @property
-    def in_feats(self) -> tuple[TrajFeat | SensorFeat, ...]:
-        return tuple(self.traj_feats) + tuple(self.sensor_feats)
+    def in_metrics(self) -> tuple[TrajMetric | SensorMetric, ...]:
+        return tuple(self.traj_metrics) + tuple(self.sensor_metrics)
 
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:

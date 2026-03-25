@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d
 from torch.types import FileLike
 from torch.utils import data
 from corvs import preprocess, utils
-from corvs.base import BaseDataset, BaseFitDataset, DataItem, SensorFeat, TrajFeat
+from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMetric, TrajMetric
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
@@ -65,11 +65,11 @@ def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = No
     return all_data
 
 class CorVSDataset(BaseDataset):
-    traj_feats   = TrajFeat.SPD, TrajFeat.TURN_RATE
-    sensor_feats = SensorFeat.LINACC_NORM, SensorFeat.ACC_X, SensorFeat.ACC_Y, SensorFeat.ACC_Z, SensorFeat.GYRO_X, SensorFeat.GYRO_Y, SensorFeat.GYRO_Z
+    traj_metrics   = TrajMetric.SPD, TrajMetric.TURN_RATE
+    sensor_metrics = SensorMetric.LINACC_NORM, SensorMetric.ACC_X, SensorMetric.ACC_Y, SensorMetric.ACC_Z, SensorMetric.GYRO_X, SensorMetric.GYRO_Y, SensorMetric.GYRO_Z
 
 class CorVSFitDataset(CorVSDataset, BaseFitDataset):
-    items = DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.VISIBLE_MASK, DataItem.LABEL
+    modalities = Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.VISIBLE_MASK, Modality.LABEL
 
     def __init__(
             self,
@@ -271,7 +271,7 @@ class CorVSFitDataModule(L.LightningDataModule):
         OmegaConf.save({k: v.tolist() for k, v in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
 class CorVSPredictDataset(CorVSDataset):
-    items = DataItem.TIME, DataItem.TRAJ_FEAT, DataItem.SENSOR_FEAT, DataItem.VALID_MASK, DataItem.LABEL
+    modalities = Modality.TIME, Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.LABEL
 
     def __init__(
             self,
