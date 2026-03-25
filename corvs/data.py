@@ -76,7 +76,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             self,
             root_path: PathLike,
             cache_path: FileLike,
-            traj_track_ids: Collection[int],
+            track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
             min_input_len: int,
@@ -94,11 +94,11 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         self.win_len, self.win_stride = win_len, win_stride
 
         root_path = Path(root_path)
-        all_traj_data = load_traj_data(root_path / "trajectory", traj_track_ids, start=start, stop=stop)
+        all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, stop=stop)
 
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
-        for ti in tqdm.tqdm(traj_track_ids, desc="loading and preprocessing data"):
+        for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
@@ -188,7 +188,7 @@ class CorVSFitDataModule(L.LightningDataModule):
             self,
             path: PathLike,
             hparams: dict[str, Any] | DictConfig,
-            traj_track_ids: Optional[tuple[Collection[int], Collection[int], Collection[int]]] = None,
+            split_track_ids: Optional[tuple[Collection[int], Collection[int], Collection[int]]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
             stop: Optional[float | str | datetime] = None,
@@ -196,8 +196,8 @@ class CorVSFitDataModule(L.LightningDataModule):
         ) -> None:
         super().__init__()
 
-        if (traj_track_ids is None) == (split_ratio is None):
-            raise ValueError("exactly one of trajectory track IDs or splitting ratio must be given")
+        if (split_track_ids is None) == (split_ratio is None):
+            raise ValueError("exactly one of track IDs or ratio must be given")
 
         self.save_hyperparameters(hparams)
         self.datasets: dict[Literal["train", "val", "test"], CorVSFitDataset] = {}
@@ -207,7 +207,7 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.start = utils.to_unix(start, utils.JST)
         self.stop = utils.to_unix(stop, utils.JST)
 
-        if traj_track_ids is None:
+        if split_track_ids is None:
             traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
             label = preproc.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
             self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
@@ -217,9 +217,9 @@ class CorVSFitDataModule(L.LightningDataModule):
             }
         else:
             self.track_ids = {
-                "train": np.asanyarray(traj_track_ids[0], dtype=np.uint32),
-                "val": np.asanyarray(traj_track_ids[1], dtype=np.uint32),
-                "test": np.asanyarray(traj_track_ids[2], dtype=np.uint32)
+                "train": np.asanyarray(split_track_ids[0], dtype=np.uint32),
+                "val": np.asanyarray(split_track_ids[1], dtype=np.uint32),
+                "test": np.asanyarray(split_track_ids[2], dtype=np.uint32)
             }
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
