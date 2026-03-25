@@ -128,8 +128,8 @@ class BasePredictModule(BaseModule):
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
-        self = cls(hparams=hparams, dataset_cls=dataset_cls, **kwargs)
+    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
+        self = cls(hparams=hparams, ds_cls=ds_cls, **kwargs)
         safetensors.load_model(self, path)    # device argument does not work with lightning
         self = self.to(device=device).eval()
         return self

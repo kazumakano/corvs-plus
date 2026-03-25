@@ -14,8 +14,8 @@ from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
 class CorVSNet(BaseModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
-        super().__init__(hparams, dataset_cls)
+    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset]) -> None:
+        super().__init__(hparams, ds_cls)
 
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
@@ -38,7 +38,7 @@ class CorVSNet(BaseModule):
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "learnable":
-                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
+                self.pos_emb  = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
                 xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
             case "rope":
                 xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
@@ -85,13 +85,15 @@ class CorVSNet(BaseModule):
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
 
-        hidden: torch.FloatTensor = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
+        hidden: torch.FloatTensor
+
+        hidden = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
 
         hidden = einops.rearrange(hidden, "b d t -> t b d")
         if self.hparams["cls_tok"]:
             cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
-            hidden = torch.cat((cls_tok, hidden))
+            hidden  = torch.cat((cls_tok, hidden))
         if self.hparams["xformer_pos_enc"] in ("sinusoidal", "learnable"):
             pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
@@ -100,11 +102,11 @@ class CorVSNet(BaseModule):
         if visible_mask is not None:
             if not self._mask_is_contig(~visible_mask):
                 raise ValueError("invisible region must be contiguous")
-            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)    # (time, )
-            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values             # (batch, )
-            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values            # (batch, )
-            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
-            valid_mask = valid_mask & visible_mask
+            time_idx          = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)    # (time, )
+            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values                      # (batch, )
+            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values                     # (batch, )
+            visible_mask      = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
+            valid_mask        = valid_mask & visible_mask
 
         hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
 
@@ -134,8 +136,8 @@ class CorVSNet(BaseModule):
         return (diff_cnt < 3).all().item()
 
 class CorVSNetFitter(CorVSNet, BaseFitModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseFitDataset]) -> None:
-        super().__init__(hparams, dataset_cls)
+    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseFitDataset]) -> None:
+        super().__init__(hparams, ds_cls)
 
         self.example_input_array = (
             torch.empty(1, self.hparams["win_len"], len(self.traj_mets), dtype=torch.float32),
@@ -146,38 +148,38 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss = self.train_crit(logit, batch[self.modalities.index(Modality.LABEL)])
+        loss  = self.train_crit(logit, batch[self.modalities.index(Modality.LABEL)])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss = self.val_crit(logit, batch[self.modalities.index(Modality.LABEL)])
+        loss  = self.val_crit(logit, batch[self.modalities.index(Modality.LABEL)])
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
-        prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
-        spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
+        prob   = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
+        spd    = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
         linacc = sensor_input[:, :, self.sensor_mets.index(SensorMet.LINACC_NORM)]
-        rel = self.rel_estim(spd, linacc, valid_mask)
+        rel    = self.rel_estim(spd, linacc, valid_mask)
         return prob, rel
 
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
-        cnt = valid_mask.count_nonzero(dim=1)
-        spd_mean = (valid_mask * spd).sum(dim=1) / cnt
-        spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
-        linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        spd_run_var = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
+        cnt            = valid_mask.count_nonzero(dim=1)
+        spd_mean       = (valid_mask * spd).sum(dim=1) / cnt
+        spd_var        = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        linacc_mean    = (valid_mask * linacc).sum(dim=1) / cnt
+        linacc_var     = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        spd_run_var    = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
         linacc_run_var = self.bn.running_var[self.in_mets.index(SensorMet.LINACC_NORM)]
-        output = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
+        output         = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
 
         return output
 
     def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
-        time = batch[self.modalities.index(Modality.TIME)]
+        time      = batch[self.modalities.index(Modality.TIME)]
         prob, rel = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)])
-        label = batch[self.modalities.index(Modality.LABEL)]
+        label     = batch[self.modalities.index(Modality.LABEL)]
         return time, prob, rel, label
