@@ -10,15 +10,16 @@ from corvs import CorVSFitDataModule, CorVSFitDataset, CorVSNetFitter
 from corvs.callbacks import ArgsWriter, BestMetricsWriter, ErrWriter
 
 
-def train(data_path: PathLike, param_path: PathLike, split_ratio: tuple[float, float, float] = (0.8, 0.2, 0), exp_name: Optional[str] = None, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None, seed: Optional[float] = None) -> None:
+def train(data_path: PathLike, split_path: PathLike, param_path: PathLike, exp_name: Optional[str] = None, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None, seed: Optional[float] = None) -> None:
     torch.set_float32_matmul_precision("high")
+    track_ids = tuple(OmegaConf.load(split_path).values())
     hparams = OmegaConf.load(param_path)
 
     model = CorVSNetFitter(hparams, CorVSFitDataset)
-    datamodule = CorVSFitDataModule(data_path, hparams, split_ratio=split_ratio, start=start, stop=stop, seed=seed)
+    datamodule = CorVSFitDataModule(data_path, hparams, track_ids, start=start, stop=stop, seed=seed)
 
     cbs = [
-        ArgsWriter(data_path=data_path, param_path=param_path, split_ratio=split_ratio, start=start, stop=stop, seed=seed),
+        ArgsWriter(data_path=data_path, split_path=split_path, param_path=param_path, start=start, stop=stop, seed=seed),
         BestMetricsWriter("val_loss"),
         ErrWriter(),
         callbacks.LearningRateMonitor(),
@@ -45,12 +46,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data_path", default="dataset/", help="path to dataset root directory")
+    parser.add_argument("-s", "--split_path", default="configs/split.yaml", help="path to split file")
     parser.add_argument("-p", "--param_path", default="configs/hparams.yaml", help="path to hyperparameter file")
-    parser.add_argument("-s", "--split_ratio", nargs=3, default=(0.8, 0.2, 0), type=float, help="data splitting ratio", metavar="PROP")
     parser.add_argument("-e", "--exp_name", help="experiment name", metavar="NAME")
     parser.add_argument("--from", help="start datetime in JST", metavar="DATETIME", dest="from_")
     parser.add_argument("--to", help="end datetime in JST", metavar="DATETIME")
     parser.add_argument("--seed", type=int, help="random seed")
     args = parser.parse_args()
 
-    train(args.data_path, args.param_path, args.split_ratio, args.exp_name, args.from_, args.to, args.seed)
+    train(args.data_path, args.split_path, args.param_path, args.exp_name, args.from_, args.to, args.seed)
