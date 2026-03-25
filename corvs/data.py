@@ -18,8 +18,8 @@ from corvs import preprocess as preproc
 from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMet, TrajMet
 
-TRAJ_FREQ = 2.5
-TRAJ_RESOL = 0.01
+TRAJ_FREQ   = 2.5
+TRAJ_RESOL  = 0.01
 SENSOR_FREQ = 100
 
 def load_traj_data(path: PathLike, track_ids: Optional[Iterable[int]] = None, label_ids: Optional[Iterable[int]] = None, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
