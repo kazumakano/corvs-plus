@@ -207,9 +207,9 @@ class CorVSFitDataModule(L.LightningDataModule):
         self.start = utils.to_unix(start, utils.JST)
         self.stop = utils.to_unix(stop, utils.JST)
 
-        traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
-        traj_data = traj_data[traj_data["label"] < 1000]
         if split_track_ids is None:
+            traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
+            traj_data = traj_data[traj_data["label"] < 1000]
             label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
             self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
                 "train": traj_data[traj_data["label"].isin(label_ids[0])]["track"].unique(),
