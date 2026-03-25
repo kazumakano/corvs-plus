@@ -52,12 +52,9 @@ class BaseDataModule(L.LightningDataModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
+        self.datasets: dict[Literal["train", "val", "test", "pred"], BaseDataset] = {}
 
 class BaseFitDataModule(BaseDataModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
-        super().__init__(hparams)
-        self.datasets: dict[Literal["train", "val", "test"], BaseFitDataset] = {}
-
     def train_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["train"], batch_size=self.hparams["batch_size"], shuffle=True, num_workers=self.hparams["num_workers"], pin_memory=True, drop_last=True, persistent_workers=True)
 
@@ -68,10 +65,6 @@ class BaseFitDataModule(BaseDataModule):
         return data.DataLoader(self.datasets["test"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
 
 class BasePredictDataModule(BaseDataModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
-        super().__init__(hparams)
-        self.datasets: dict[Literal["pred"], BaseDataset] = {}
-
     def predict_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["pred"], batch_size=self.hparams["batch_size"], num_workers=self.hparams["num_workers"], pin_memory=True)
 
