@@ -15,7 +15,7 @@ def train(data_path: PathLike, param_path: PathLike, split_ratio: tuple[float, f
     hparams = OmegaConf.load(param_path)
 
     model = CorVSNetFitter(hparams, CorVSFitDataset)
-    datamodule = CorVSFitDataModule(data_path, hparams, split_ratio, start, stop, seed)
+    datamodule = CorVSFitDataModule(data_path, hparams, split_ratio=split_ratio, start=start, stop=stop, seed=seed)
 
     cbs = [
         ArgsWriter(data_path=data_path, param_path=param_path, split_ratio=split_ratio, start=start, stop=stop, seed=seed),

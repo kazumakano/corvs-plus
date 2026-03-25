@@ -14,7 +14,7 @@ from torch.nn.utils import rnn
 
 def rand_split(data: ArrayLike, ratio: tuple[float, float, float], rng: Optional[random.Generator] = None) -> list[NDArray]:
     if sum(ratio) != 1:
-        raise ValueError("summation of ratios must be 1")
+        raise ValueError("summation of proportions must be 1")
 
     if rng is None:
         rng = random.default_rng()

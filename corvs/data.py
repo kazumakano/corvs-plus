@@ -14,7 +14,8 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
 from torch.utils import data
-from corvs import preprocess, utils
+from corvs import preprocess as preproc
+from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMetric, TrajMetric
 
 TRAJ_FREQ = 2.5
@@ -104,15 +105,15 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
                 meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
 
-                for _, td in preprocess.seg_by_timeout(traj_data, 5):
+                for _, td in preproc.seg_by_timeout(traj_data, 5):
                     traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                     if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
                         loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
-                        spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                        turn_rate = ndimage.gaussian_filter1d(preprocess.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                        spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
+                        turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
 
-                        synced_spd, synced_turn_rate, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)[1:]
+                        synced_spd, synced_turn_rate, synced_meas = preproc.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)[1:]
                         self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
                         self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
@@ -159,8 +160,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         time_idx = torch.arange(self.win_len, dtype=torch.int32)
         if idx < len(self.pos_map):
             return (
-                preprocess.pad(self.traj_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride:self.pos_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-                preprocess.pad(self.sensor_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride + self.pos_map[idx, 5]:self.pos_map[idx, 1] * self.win_stride + self.win_len + self.pos_map[idx, 5]].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.traj_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride:self.pos_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.sensor_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride + self.pos_map[idx, 5]:self.pos_map[idx, 1] * self.win_stride + self.win_len + self.pos_map[idx, 5]].unsqueeze(0), self.win_len).squeeze(dim=1),
                 time_idx < self.pos_map[idx, 2],
                 (time_idx < self.pos_map[idx, 3]) | (self.pos_map[idx, 3] + self.pos_map[idx, 4] <= time_idx),
                 torch.ones(1, dtype=torch.float32)
@@ -168,8 +169,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         else:
             idx -= len(self.pos_map)
             return (
-                preprocess.pad(self.traj_feat[self.neg_map[idx, 0]][self.neg_map[idx, 1] * self.win_stride:self.neg_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-                preprocess.pad(self.sensor_feat[self.neg_map[idx, 2]][self.neg_map[idx, 3] * self.win_stride:self.neg_map[idx, 3] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.traj_feat[self.neg_map[idx, 0]][self.neg_map[idx, 1] * self.win_stride:self.neg_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.sensor_feat[self.neg_map[idx, 2]][self.neg_map[idx, 3] * self.win_stride:self.neg_map[idx, 3] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
                 time_idx < self.neg_map[idx, 4],
                 torch.ones(self.win_len, dtype=torch.bool),
                 torch.zeros(1, dtype=torch.float32)
@@ -187,27 +188,35 @@ class CorVSFitDataModule(L.LightningDataModule):
             self,
             path: PathLike,
             hparams: dict[str, Any] | DictConfig,
-            split_ratio: tuple[float, float, float] = (0.8, 0.2, 0),
+            traj_track_ids: Optional[tuple[Collection[int], Collection[int], Collection[int]]] = None,
+            split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
             stop: Optional[float | str | datetime] = None,
             seed: Optional[int] = None
         ) -> None:
         super().__init__()
+
+        if (traj_track_ids is None) == (split_ratio is None):
+            raise ValueError("exactly one of trajectory track IDs or splitting ratio must be given")
+
         self.save_hyperparameters(hparams)
         self.datasets: dict[Literal["train", "val", "test"], CorVSFitDataset] = {}
         self.root_path = Path(path)
         self.seed = seed
 
-        self.start = utils.to_unix(start, utils.jst)
-        self.stop = utils.to_unix(stop, utils.jst)
+        self.start = utils.to_unix(start, utils.JST)
+        self.stop = utils.to_unix(stop, utils.JST)
 
-        traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
-        label = preprocess.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
-        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
-            "train": traj_data[traj_data["label"].isin(label[0])]["track"].unique(),
-            "val": traj_data[traj_data["label"].isin(label[1])]["track"].unique(),
-            "test": traj_data[traj_data["label"].isin(label[2])]["track"].unique()
-        }
+        if traj_track_ids is None:
+            traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
+            label = preproc.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
+            self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
+                "train": traj_data[traj_data["label"].isin(label[0])]["track"].unique(),
+                "val": traj_data[traj_data["label"].isin(label[1])]["track"].unique(),
+                "test": traj_data[traj_data["label"].isin(label[2])]["track"].unique()
+            }
+        else:
+            self.track_ids: dict[Literal["train", "val", "test"], Collection[int]] = {"train": traj_track_ids[0], "val": traj_track_ids[1], "test": traj_track_ids[2]}
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
@@ -301,15 +310,15 @@ class CorVSPredictDataset(CorVSDataset):
         if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
             meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
 
-            for i, td in preprocess.seg_by_timeout(traj_data, 5):
+            for i, td in preproc.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                 if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
-                    spd = ndimage.gaussian_filter1d(preprocess.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                    turn_rate = ndimage.gaussian_filter1d(preprocess.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                    spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
+                    turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
 
-                    synced_time, synced_spd, synced_turn_rate, synced_meas = preprocess.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)
+                    synced_time, synced_spd, synced_turn_rate, synced_meas = preproc.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)
                     self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
                     self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
@@ -328,8 +337,8 @@ class CorVSPredictDataset(CorVSDataset):
     def __getitem__(self, idx: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.FloatTensor]:
         return (
             self.time[self.map[idx][0]][self.map[idx][1]].unsqueeze(0),
-            preprocess.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-            preprocess.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+            preproc.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+            preproc.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
             torch.arange(self.win_len, dtype=torch.int32) < self.map[idx][2],
             self.label.unsqueeze(0)
         )
@@ -352,8 +361,8 @@ class CorVSPredictDataModule(L.LightningDataModule):
         self.root_path = Path(path)
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
 
-        self.start = utils.to_unix(start, utils.jst)
-        self.stop = utils.to_unix(stop, utils.jst)
+        self.start = utils.to_unix(start, utils.JST)
+        self.stop = utils.to_unix(stop, utils.JST)
 
     def setup(self, stage: Literal["predict"]) -> None:
         match stage:

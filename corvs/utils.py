@@ -5,7 +5,7 @@ from typing import Optional
 import torch
 from dateutil import parser
 
-jst = zoneinfo.ZoneInfo("Asia/Tokyo")
+JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 
 def to_unix(dt: float | str | datetime, tzinfo: Optional[tzinfo] = None) -> float:
     if isinstance(dt, str):
@@ -16,12 +16,12 @@ def to_unix(dt: float | str | datetime, tzinfo: Optional[tzinfo] = None) -> floa
         dt = dt.timestamp()
     return dt
 
-def get_min_int_dtype(max_val: int) -> torch.dtype:
-    if max_val < 2 ** 7:
+def get_min_int_dtype(val: int) -> torch.dtype:
+    if val < 2 ** 7:
         return torch.int8
-    elif max_val < 2 ** 15:
+    elif val < 2 ** 15:
         return torch.int16
-    elif max_val < 2 ** 31:
+    elif val < 2 ** 31:
         return torch.int32
     else:
         return torch.int64
