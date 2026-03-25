@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredictModule, Modality, SensorMetric, TrajMetric
+from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredictModule, Modality, SensorMet, TrajMet
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
@@ -20,11 +20,11 @@ class CorVSNet(BaseModule):
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
-        self.bn = MaskedBatchNorm1d(len(self.in_metrics), affine=False)
+        self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(len(self.in_metrics), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
+            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
         else:
-            self.cnn = DualCNN(len(self.in_metrics), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
+            self.cnn = DualCNN(len(self.in_mets), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
 
         if self.hparams["min_input_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
@@ -138,29 +138,29 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         super().__init__(hparams, dataset_cls)
 
         self.example_input_array = (
-            torch.empty(1, self.hparams["win_len"], len(self.traj_metrics), dtype=torch.float32),
-            torch.empty(1, self.hparams["win_len"], len(self.sensor_metrics), dtype=torch.float32),
+            torch.empty(1, self.hparams["win_len"], len(self.traj_mets), dtype=torch.float32),
+            torch.empty(1, self.hparams["win_len"], len(self.sensor_mets), dtype=torch.float32),
             torch.ones(1, self.hparams["win_len"], dtype=torch.bool),
             torch.ones(1, self.hparams["win_len"], dtype=torch.bool)
         )
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss = self.train_criterion(logit, batch[self.modalities.index(Modality.LABEL)])
+        loss = self.train_crit(logit, batch[self.modalities.index(Modality.LABEL)])
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss = self.val_criterion(logit, batch[self.modalities.index(Modality.LABEL)])
+        loss = self.val_crit(logit, batch[self.modalities.index(Modality.LABEL)])
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredictModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
-        spd = traj_input[:, :, self.traj_metrics.index(TrajMetric.SPD)]
-        linacc = sensor_input[:, :, self.sensor_metrics.index(SensorMetric.LINACC_NORM)]
+        spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
+        linacc = sensor_input[:, :, self.sensor_mets.index(SensorMet.LINACC_NORM)]
         rel = self.rel_estim(spd, linacc, valid_mask)
         return prob, rel
 
@@ -170,8 +170,8 @@ class CorVSNetPredictor(CorVSNet, BasePredictModule):
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
         linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        spd_run_var = self.bn.running_var[self.in_metrics.index(TrajMetric.SPD)]
-        linacc_run_var = self.bn.running_var[self.in_metrics.index(SensorMetric.LINACC_NORM)]
+        spd_run_var = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
+        linacc_run_var = self.bn.running_var[self.in_mets.index(SensorMet.LINACC_NORM)]
         output = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
 
         return output

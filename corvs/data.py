@@ -16,7 +16,7 @@ from torch.types import FileLike
 from torch.utils import data
 from corvs import preprocess as preproc
 from corvs import utils
-from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMetric, TrajMetric
+from corvs.base import BaseDataset, BaseFitDataset, Modality, SensorMet, TrajMet
 
 TRAJ_FREQ = 2.5
 TRAJ_RESOL = 0.01
@@ -66,8 +66,8 @@ def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = No
     return all_data
 
 class CorVSDataset(BaseDataset):
-    traj_metrics   = TrajMetric.SPD, TrajMetric.TURN_RATE
-    sensor_metrics = SensorMetric.LINACC_NORM, SensorMetric.ACC_X, SensorMetric.ACC_Y, SensorMetric.ACC_Z, SensorMetric.GYRO_X, SensorMetric.GYRO_Y, SensorMetric.GYRO_Z
+    traj_mets   = TrajMet.SPD, TrajMet.TURN_RATE
+    sensor_mets = SensorMet.LINACC_NORM, SensorMet.ACC_X, SensorMet.ACC_Y, SensorMet.ACC_Z, SensorMet.GYRO_X, SensorMet.GYRO_Y, SensorMet.GYRO_Z
 
 class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     modalities = Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.VISIBLE_MASK, Modality.LABEL

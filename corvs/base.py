@@ -24,11 +24,11 @@ class Modality(enum.Enum):
     VISIBLE_MASK = enum.auto()
     LABEL        = enum.auto()
 
-class TrajMetric(enum.Enum):
+class TrajMet(enum.Enum):
     SPD       = enum.auto()
     TURN_RATE = enum.auto()
 
-class SensorMetric(enum.Enum):
+class SensorMet(enum.Enum):
     LINACC_NORM = enum.auto()
     ACC_X       = enum.auto()
     ACC_Y       = enum.auto()
@@ -38,9 +38,9 @@ class SensorMetric(enum.Enum):
     GYRO_Z      = enum.auto()
 
 class BaseDataset(data.Dataset):
-    modalities:     ClassVar[Sequence[Modality]]
-    traj_metrics:   ClassVar[Sequence[TrajMetric]]
-    sensor_metrics: ClassVar[Sequence[SensorMetric]]
+    modalities:  ClassVar[Sequence[Modality]]
+    traj_mets:   ClassVar[Sequence[TrajMet]]
+    sensor_mets: ClassVar[Sequence[SensorMet]]
 
 class BaseFitDataset(BaseDataset, abc.ABC):
     @property
@@ -49,31 +49,36 @@ class BaseFitDataset(BaseDataset, abc.ABC):
         ...
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, dataset_cls: type[BaseDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.modalities = tuple(dataset_cls.modalities)
-        self.traj_metrics = tuple(dataset_cls.traj_metrics)
-        self.sensor_metrics = tuple(dataset_cls.sensor_metrics)
+        self.modalities = tuple(ds_cls.modalities)
+        self.traj_mets = tuple(ds_cls.traj_mets)
+        self.sensor_mets = tuple(ds_cls.sensor_mets)
 
     @property
-    def in_metrics(self) -> tuple[TrajMetric | SensorMetric, ...]:
-        return self.traj_metrics + self.sensor_metrics
+    def in_mets(self) -> tuple[TrajMet | SensorMet, ...]:
+        return self.traj_mets + self.sensor_mets
 
 class BaseFitModule(BaseModule):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         if stage == "fit":
             match self.hparams["loss"]:
                 case "bce":
-                    self.train_criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
+                    self.train_crit = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
                 case "focal":
-                    self.train_criterion = FocalWithLogitsLoss()
+                    self.train_crit = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
-            self.val_criterion = nn.BCEWithLogitsLoss()
+            self.val_crit = nn.BCEWithLogitsLoss()
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         match self.hparams["opt"]:
+            case "sgd":
+                if self.hparams["sched"] == "free":
+                    return optim.ScheduleFreeSGD(self.parameters(), lr=self.hparams["lr"])
+                else:
+                    opt = optim.SGD(self.parameters(), lr=self.hparams["lr"])
             case "adam":
                 opt = optim.Adam(self.parameters(), lr=self.hparams["lr"])
             case "adamw":
@@ -81,19 +86,12 @@ class BaseFitModule(BaseModule):
                     return optim.ScheduleFreeAdamW(self.parameters(), lr=self.hparams["lr"])
                 else:
                     opt = optim.AdamW(self.parameters(), lr=self.hparams["lr"])
-            case "sgd":
-                if self.hparams["sched"] == "free":
-                    return optim.ScheduleFreeSGD(self.parameters(), lr=self.hparams["lr"])
-                else:
-                    opt = optim.SGD(self.parameters(), lr=self.hparams["lr"])
             case "soap":
                 opt = optim.SOAP(self.parameters(), lr=self.hparams["lr"])
             case _:
                 raise ValueError(f"unknown optimizer {self.hparams['opt']} was specified")
 
         match self.hparams["sched"]:
-            case "free":
-                raise ValueError(f"free scheduler is not supported for optimizer {self.hparams['opt']}")
             case "warm_cos":
                 return {
                     "optimizer": opt,
@@ -102,6 +100,8 @@ class BaseFitModule(BaseModule):
                         "interval": "step"
                     }
                 }
+            case "free":
+                raise ValueError(f"free scheduler is not supported for optimizer {self.hparams['opt']}")
             case None:
                 return opt
             case _:
