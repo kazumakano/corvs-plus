@@ -52,8 +52,8 @@ class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.modalities = tuple(ds_cls.modalities)
-        self.traj_mets = tuple(ds_cls.traj_mets)
+        self.modalities  = tuple(ds_cls.modalities)
+        self.traj_mets   = tuple(ds_cls.traj_mets)
         self.sensor_mets = tuple(ds_cls.sensor_mets)
 
     @property
