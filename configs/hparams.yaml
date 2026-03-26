@@ -1,9 +1,9 @@
 # data
 freq: 10
 smooth: 0.2
-min_input_len: 21
+min_in_len: 21
 win_len: 600
-win_stride: 10
+win_st: 10
 pos_factor: 4
 pos_mask: 0.275
 pos_shift: 0.25
@@ -14,14 +14,19 @@ arch: corvsnet
 cnn_sep: false
 cnn_ks_s: 5
 cnn_fn: null
+cnn_act: silu
 cls_tok: false
 xformer_pos_enc: rope
 xformer_n_layers: 4
 xformer_d_model: 48
 xformer_nhead: 4
 xformer_d_ff: 128
+xformer_dr: 0.1
 xformer_act: gelu
+xformer_norm: layer
 time_agg: attn_pool
+mlp_dr: 0.1
+mlp_act: gelu
 
 # training
 loss: bce

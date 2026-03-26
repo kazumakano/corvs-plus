@@ -77,9 +77,9 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
-            min_input_len: int,
+            min_in_len: int,
             win_len: int,
-            win_stride: int = 1,
+            win_st: int = 1,
             pos_factor: int = 1,
             pos_mask: Optional[float] = None,
             pos_shift_in_sec: Optional[float] = None,
@@ -89,7 +89,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             seed: Optional[int] = None
         ) -> None:
         self.freq = freq_in_hz
-        self.win_len, self.win_stride = win_len, win_stride
+        self.win_len, self.win_st = win_len, win_st
 
         root_path = Path(root_path)
         all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, stop=stop)
@@ -100,13 +100,13 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
-            if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
+            if len(sensor_data) / SENSOR_FREQ > min_in_len / self.freq:
                 meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
 
                 for _, td in preproc.seg_by_timeout(traj_data, 5):
                     traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                    if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
+                    if (len(traj_time) - 2) / TRAJ_FREQ > min_in_len / self.freq:
                         loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                         spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
                         turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
@@ -122,7 +122,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs")):
             valid_len = min(self.win_len, len(tf))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
-            win_num = max(1, (len(tf) - self.win_len) // self.win_stride + 1)
+            win_num = max(1, (len(tf) - self.win_len) // self.win_st + 1)
             max_win_num = max(win_num, max_win_num)
             for j in range(win_num):
                 pos_map.append((i, j, valid_len, 0, 0, 0))
@@ -132,8 +132,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                         shift_len = 0
                     else:
                         shift_len = round(rng.normal(scale=pos_shift_in_sec * self.freq))
-                        shift_len = max(-j * self.win_stride, shift_len)
-                        shift_len = min(shift_len, len(tf) - j * self.win_stride - self.win_len)
+                        shift_len = max(-j * self.win_st, shift_len)
+                        shift_len = min(shift_len, len(tf) - j * self.win_st - self.win_len)
                     pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
         self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
 
@@ -141,7 +141,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
-                if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_stride:
+                if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_st:
                     neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:
@@ -158,8 +158,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         time_idx = torch.arange(self.win_len, dtype=torch.int32)
         if idx < len(self.pos_map):
             return (
-                preproc.pad(self.traj_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride:self.pos_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-                preproc.pad(self.sensor_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_stride + self.pos_map[idx, 5]:self.pos_map[idx, 1] * self.win_stride + self.win_len + self.pos_map[idx, 5]].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.traj_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_st:self.pos_map[idx, 1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.sensor_feat[self.pos_map[idx, 0]][self.pos_map[idx, 1] * self.win_st + self.pos_map[idx, 5]:self.pos_map[idx, 1] * self.win_st + self.win_len + self.pos_map[idx, 5]].unsqueeze(0), self.win_len).squeeze(dim=1),
                 time_idx < self.pos_map[idx, 2],
                 (time_idx < self.pos_map[idx, 3]) | (self.pos_map[idx, 3] + self.pos_map[idx, 4] <= time_idx),
                 torch.ones(1, dtype=torch.float32)
@@ -167,8 +167,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         else:
             idx -= len(self.pos_map)
             return (
-                preproc.pad(self.traj_feat[self.neg_map[idx, 0]][self.neg_map[idx, 1] * self.win_stride:self.neg_map[idx, 1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-                preproc.pad(self.sensor_feat[self.neg_map[idx, 2]][self.neg_map[idx, 3] * self.win_stride:self.neg_map[idx, 3] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.traj_feat[self.neg_map[idx, 0]][self.neg_map[idx, 1] * self.win_st:self.neg_map[idx, 1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+                preproc.pad(self.sensor_feat[self.neg_map[idx, 2]][self.neg_map[idx, 3] * self.win_st:self.neg_map[idx, 3] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
                 time_idx < self.neg_map[idx, 4],
                 torch.ones(self.win_len, dtype=torch.bool),
                 torch.zeros(1, dtype=torch.float32)
@@ -228,9 +228,9 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.track_ids["train"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_input_len"],
+                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
-                        self.hparams["win_stride"],
+                        self.hparams["win_st"],
                         self.hparams["pos_factor"],
                         self.hparams["pos_mask"],
                         self.hparams["pos_shift"],
@@ -246,7 +246,7 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.track_ids["val"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_input_len"],
+                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
                         stop=self.stop,
@@ -260,7 +260,7 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.track_ids["test"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_input_len"],
+                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
                         stop=self.stop,
@@ -280,14 +280,14 @@ class CorVSPredictDataset(CorVSDataset):
             sensor_worker_id: int,
             freq_in_hz: float,
             smooth_in_sec: float,
-            min_input_len: int,
+            min_in_len: int,
             win_len: int,
-            win_stride: int = 1,
+            win_st: int = 1,
             start: Optional[float] = None,
             stop: Optional[float] = None
         ) -> None:
         self.freq = freq_in_hz
-        self.win_len, self.win_stride = win_len, win_stride
+        self.win_len, self.win_st = win_len, win_st
 
         path = Path(path)
         traj_data   = load_traj_data(path / "trajectory", (traj_track_id, ), start=start, stop=stop)
@@ -298,13 +298,13 @@ class CorVSPredictDataset(CorVSDataset):
         self.sensor_feat: list[torch.FloatTensor] = []
         map = []
         max_win_num = 0
-        if len(sensor_data) / SENSOR_FREQ > min_input_len / self.freq:
+        if len(sensor_data) / SENSOR_FREQ > min_in_len / self.freq:
             meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
 
             for i, td in preproc.seg_by_timeout(traj_data, 5):
                 traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                if (len(traj_time) - 2) / TRAJ_FREQ > min_input_len / self.freq:
+                if (len(traj_time) - 2) / TRAJ_FREQ > min_in_len / self.freq:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                     spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
                     turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
@@ -314,11 +314,11 @@ class CorVSPredictDataset(CorVSDataset):
                     self.sensor_feat.append(torch.from_numpy(synced_meas.astype(np.float32)))
 
                     valid_len = min(self.win_len, len(synced_time))
-                    win_num = max(1, (len(synced_time) - self.win_len) // self.win_stride + 1)
+                    win_num = max(1, (len(synced_time) - self.win_len) // self.win_st + 1)
                     max_win_num = max(win_num, max_win_num)
                     self.time.append(torch.empty(win_num, dtype=torch.float64))
                     for j in range(win_num):
-                        self.time[-1][j] = synced_time[j * self.win_stride]
+                        self.time[-1][j] = synced_time[j * self.win_st]
                         map.append((i, j, valid_len))
         self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max_win_num))
 
@@ -328,8 +328,8 @@ class CorVSPredictDataset(CorVSDataset):
     def __getitem__(self, idx: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.FloatTensor]:
         return (
             self.time[self.map[idx][0]][self.map[idx][1]].unsqueeze(0),
-            preproc.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
-            preproc.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_stride:self.map[idx][1] * self.win_stride + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+            preproc.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_st:self.map[idx][1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
+            preproc.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_st:self.map[idx][1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(dim=1),
             torch.arange(self.win_len, dtype=torch.int32) < self.map[idx][2],
             self.label.unsqueeze(0)
         )
@@ -363,7 +363,7 @@ class CorVSPredictDataModule(BasePredictDataModule):
                         self.worker_id,
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_input_len"],
+                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
                         stop=self.stop

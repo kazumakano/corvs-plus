@@ -5,6 +5,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
+from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredictModule, Modality, SensorMet, TrajMet
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
@@ -22,11 +23,22 @@ class CorVSNet(BaseModule):
 
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"])
+            self.cnn = SeparableDualCNN(
+                len(self.in_mets),
+                self.hparams["xformer_d_model"],
+                self.hparams["cnn_ks_s"],
+                self.hparams["cnn_fn"],
+                utils.str_to_mod(self.hparams["cnn_act"], True)
+            )
         else:
-            self.cnn = DualCNN(len(self.in_mets), self.hparams["xformer_d_model"], self.hparams["cnn_ks_s"])
+            self.cnn = DualCNN(
+                len(self.in_mets),
+                self.hparams["xformer_d_model"],
+                self.hparams["cnn_ks_s"],
+                utils.str_to_mod(self.hparams["cnn_act"], True)
+            )
 
-        if self.hparams["min_input_len"] < self.cnn.recept_field:
+        if self.hparams["min_in_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
 
         xformer_time_len = self.hparams["win_len"] - self.cnn.recept_field + 1
@@ -36,23 +48,53 @@ class CorVSNet(BaseModule):
         match self.hparams["xformer_pos_enc"]:
             case "sinusoidal":
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
-                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
+                xformer_layer = TransformerEncoderLayer(
+                    self.hparams["xformer_d_model"],
+                    self.hparams["xformer_nhead"],
+                    self.hparams["xformer_d_ff"],
+                    self.hparams["xformer_dr"],
+                    self.hparams["xformer_act"],
+                    self.hparams["xformer_norm"],
+                    norm_first=True
+                )
             case "learnable":
                 self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
-                xformer_layer = TransformerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
+                xformer_layer = TransformerEncoderLayer(
+                    self.hparams["xformer_d_model"],
+                    self.hparams["xformer_nhead"],
+                    self.hparams["xformer_d_ff"],
+                    self.hparams["xformer_dr"],
+                    self.hparams["xformer_act"],
+                    self.hparams["xformer_norm"],
+                    norm_first=True
+                )
             case "rope":
-                xformer_layer = RoFormerEncoderLayer(self.hparams["xformer_d_model"], self.hparams["xformer_nhead"], xformer_time_len, self.hparams["xformer_d_ff"], activation=self.hparams["xformer_act"], norm_first=True)
+                xformer_layer = RoFormerEncoderLayer(
+                    self.hparams["xformer_d_model"],
+                    self.hparams["xformer_nhead"],
+                    xformer_time_len,
+                    self.hparams["xformer_d_ff"],
+                    self.hparams["xformer_dr"],
+                    self.hparams["xformer_act"],
+                    self.hparams["xformer_norm"],
+                    norm_first=True
+                )
             case _:
                 raise ValueError(f"unknown positional encoding {self.hparams['xformer_pos_enc']} was specified")
-        self.xformer = nn.TransformerEncoder(xformer_layer, self.hparams["xformer_n_layers"], norm=nn.LayerNorm(self.hparams["xformer_d_model"]), enable_nested_tensor=False)
+        self.xformer = nn.TransformerEncoder(
+            xformer_layer,
+            self.hparams["xformer_n_layers"],
+            norm=nn.LayerNorm(self.hparams["xformer_d_model"]),
+            enable_nested_tensor=False
+        )
 
         if self.hparams["time_agg"] == "attn_pool":
             self.pool = MaskedGlobalAttnPool1d(self.hparams["xformer_d_model"], 1)
 
         self.mlp = nn.Sequential(
             nn.Linear(self.hparams["xformer_d_model"], self.hparams["xformer_d_model"] // 4),
-            nn.GELU(),
-            nn.Dropout(p=0.1),
+            utils.str_to_mod(self.hparams["mlp_act"]),
+            nn.Dropout(p=self.hparams["mlp_dr"]),
             nn.Linear(self.hparams["xformer_d_model"] // 4, 1)
         )
 
@@ -60,7 +102,7 @@ class CorVSNet(BaseModule):
 
     def reset_parameters(self) -> None:
         for m in self.modules():
-            if isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.LayerNorm):
+            if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm)):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Conv1d):
