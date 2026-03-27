@@ -4,26 +4,6 @@ from torch import nn
 from torch.nn import functional as F
 
 
-class MaskedGlobalAttnPool1d(nn.Module):
-    def __init__(self, d_model: int, nhead: int) -> None:
-        if d_model % nhead != 0:
-            raise ValueError("dimension must be divisible by number of heads")
-
-        super().__init__()
-
-        self.nhead = nhead
-        self.proj = nn.Linear(d_model, self.nhead)
-
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
-        score: torch.FloatTensor
-        score  = self.proj(input.transpose(-2, -1))
-        weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)
-        weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
-        input  = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead)
-        output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
-
-        return output
-
 def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:
     """
     Apply masked global average pooling along time dimension.
@@ -91,3 +71,23 @@ def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.Boo
     """
 
     return (F.softmax((input / temp).masked_fill(~valid_mask.unsqueeze(-2), -torch.inf), dim=-1) * input).sum(dim=-1)
+
+class MaskedGlobalAttnPool1d(nn.Module):
+    def __init__(self, d_model: int, nhead: int) -> None:
+        if d_model % nhead != 0:
+            raise ValueError("dimension must be divisible by number of heads")
+
+        super().__init__()
+
+        self.nhead = nhead
+        self.proj = nn.Linear(d_model, self.nhead)
+
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
+        score: torch.FloatTensor
+        score  = self.proj(input.transpose(-2, -1))
+        weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)
+        weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
+        input  = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead)
+        output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
+
+        return output
