@@ -63,8 +63,8 @@ class CorVSNet(BaseModule):
                 xfmr_layer = RoFormerEncoderLayer(
                     self.hparams["xfmr_d_model"],
                     self.hparams["xfmr_nhead"],
-                    xfmr_time_len,
                     self.hparams["xfmr_d_ff"],
+                    xfmr_time_len,
                     self.hparams["xfmr_dr"],
                     self.hparams["xfmr_act"],
                     self.hparams["xfmr_norm"],
