@@ -57,17 +57,41 @@ class BaseDataModule(L.LightningDataModule):
 
 class BaseFitDataModule(BaseDataModule):
     def train_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["train"], batch_size=self.hparams["bsz"], shuffle=True, num_workers=self.hparams["n_workers"], pin_memory=True, drop_last=True, persistent_workers=True)
+        return data.DataLoader(
+            self.datasets["train"],
+            batch_size=self.hparams["bsz"],
+            shuffle=True,
+            num_workers=self.hparams["n_workers"],
+            pin_memory=True,
+            drop_last=True,
+            persistent_workers=True
+        )
 
     def val_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["val"], batch_size=self.hparams["bsz"], num_workers=self.hparams["n_workers"], pin_memory=True, persistent_workers=True)
+        return data.DataLoader(
+            self.datasets["val"],
+            batch_size=self.hparams["bsz"],
+            num_workers=self.hparams["n_workers"],
+            pin_memory=True,
+            persistent_workers=True
+        )
 
     def test_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["test"], batch_size=self.hparams["bsz"], num_workers=self.hparams["n_workers"], pin_memory=True)
+        return data.DataLoader(
+            self.datasets["test"],
+            batch_size=self.hparams["bsz"],
+            num_workers=self.hparams["n_workers"],
+            pin_memory=True
+        )
 
 class BasePredDataModule(BaseDataModule):
     def predict_dataloader(self) -> data.DataLoader:
-        return data.DataLoader(self.datasets["pred"], batch_size=self.hparams["bsz"], num_workers=self.hparams["n_workers"], pin_memory=True)
+        return data.DataLoader(
+            self.datasets["pred"],
+            batch_size=self.hparams["bsz"],
+            num_workers=self.hparams["n_workers"],
+            pin_memory=True
+        )
 
 class BaseModule(L.LightningModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
