@@ -2,7 +2,7 @@ import abc
 import enum
 from argparse import Namespace
 from os import PathLike
-from typing import IO, Any, ClassVar, Literal, Optional, Self, Sequence
+from typing import Any, BinaryIO, ClassVar, Literal, Optional, Self, Sequence
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -108,13 +108,13 @@ class BaseModule(L.LightningModule):
     @classmethod
     def load_from_checkpoint(
             cls,
-            checkpoint_path: PathLike | IO,
+            checkpoint_path: PathLike | BinaryIO,
             ds_cls: type[BaseDataset],
             map_location: Optional[str | torch.device | dict[str, str]] = None,
             **kwargs: Any
         ) -> Self:
 
-        return super().load_from_checkpoint(checkpoint_path, map_location=map_location, strict=False, weights_only=False, ds_cls=(ds_cls.__module__, ds_cls.__qualname__), **kwargs)    # only primitive types are allowed
+        return super().load_from_checkpoint(checkpoint_path, map_location=map_location, strict=False, weights_only=False, ds_cls=(ds_cls.__module__, ds_cls.__qualname__), **kwargs)    # only primitive types are allowed for additional keyword arguments
 
     @property
     def in_mets(self) -> tuple[TrajMet | SensorMet, ...]:
