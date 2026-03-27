@@ -1,3 +1,4 @@
+from argparse import Namespace
 from typing import Any, Optional
 import einops
 import torch
@@ -6,7 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
 from corvs import utils
-from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredictModule, Modality, SensorMet, TrajMet
+from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredModule, Modality, SensorMet, TrajMet
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
@@ -15,7 +16,7 @@ from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
 class CorVSNet(BaseModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
         super().__init__(hparams, ds_cls)
 
         if self.hparams["time_agg"] == "cls_tok" and not self.hparams["cls_tok"]:
@@ -200,7 +201,7 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
-class CorVSNetPredictor(CorVSNet, BasePredictModule):
+class CorVSNetPredictor(CorVSNet, BasePredModule):
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
         spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]

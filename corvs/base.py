@@ -1,5 +1,6 @@
 import abc
 import enum
+from argparse import Namespace
 from os import PathLike
 from typing import Any, ClassVar, Literal, Optional, Self, Sequence
 import pytorch_optimizer as optim
@@ -49,7 +50,7 @@ class BaseFitDataset(BaseDataset, abc.ABC):
         ...
 
 class BaseDataModule(L.LightningDataModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
         self.datasets: dict[Literal["train", "val", "test", "pred"], BaseDataset] = {}
@@ -64,12 +65,12 @@ class BaseFitDataModule(BaseDataModule):
     def test_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["test"], batch_size=self.hparams["bsz"], num_workers=self.hparams["n_workers"], pin_memory=True)
 
-class BasePredictDataModule(BaseDataModule):
+class BasePredDataModule(BaseDataModule):
     def predict_dataloader(self) -> data.DataLoader:
         return data.DataLoader(self.datasets["pred"], batch_size=self.hparams["bsz"], num_workers=self.hparams["n_workers"], pin_memory=True)
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
         self.modalities  = tuple(ds_cls.modalities)
@@ -142,13 +143,13 @@ class BaseFitModule(BaseModule):
     def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
-class BasePredictModule(BaseModule):
+class BasePredModule(BaseModule):
     def on_predict_start(self) -> None:
         if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
+    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
         self = cls(hparams=hparams, ds_cls=ds_cls, **kwargs)
         safetensors.load_model(self, path)    # device argument does not work with lightning
         self = self.to(device=device).eval()

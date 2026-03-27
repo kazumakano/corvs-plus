@@ -1,3 +1,4 @@
+from argparse import Namespace
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
@@ -14,7 +15,7 @@ from scipy.interpolate import interp1d
 from torch.types import FileLike
 from corvs import preprocess as preproc
 from corvs import utils
-from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredictDataModule, Modality, SensorMet, TrajMet
+from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredDataModule, Modality, SensorMet, TrajMet
 
 TRAJ_FREQ   = 2.5
 TRAJ_RESOL  = 0.01
@@ -185,7 +186,7 @@ class CorVSFitDataModule(BaseFitDataModule):
     def __init__(
             self,
             path: PathLike,
-            hparams: dict[str, Any] | DictConfig,
+            hparams: dict[str, Any] | Namespace | DictConfig,
             split_track_ids: Optional[tuple[ArrayLike, ArrayLike, ArrayLike]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
@@ -270,7 +271,7 @@ class CorVSFitDataModule(BaseFitDataModule):
     def save_split(self) -> None:
         OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
-class CorVSPredictDataset(CorVSDataset):
+class CorVSPredDataset(CorVSDataset):
     modalities = Modality.TIME, Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.LABEL
 
     def __init__(
@@ -344,8 +345,8 @@ class CorVSPredictDataset(CorVSDataset):
             tot_time += len(tf) / self.freq
         return tot_time
 
-class CorVSPredictDataModule(BasePredictDataModule):
-    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
+class CorVSPredDataModule(BasePredDataModule):
+    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | Namespace | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
         super().__init__(hparams)
 
         self.root_path = Path(path)
@@ -357,7 +358,7 @@ class CorVSPredictDataModule(BasePredictDataModule):
         match stage:
             case "predict":
                 if "pred" not in self.datasets.keys():
-                    self.datasets["pred"] = CorVSPredictDataset(
+                    self.datasets["pred"] = CorVSPredDataset(
                         self.root_path,
                         self.track_id,
                         self.worker_id,
