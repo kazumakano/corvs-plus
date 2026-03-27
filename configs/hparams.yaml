@@ -9,7 +9,7 @@ pos_mask: 0.275
 pos_shift: 0.25
 neg_ratio: 1024
 
-# architecture
+# model architecture
 arch: corvsnet
 cnn_sep: false
 cnn_ks_s: 5
