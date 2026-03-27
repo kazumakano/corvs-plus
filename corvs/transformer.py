@@ -27,7 +27,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             norm_first: bool = False,
             bias: bool = True,
             device: Device = None,
-            dtype: Optional[torch.device] = None
+            dtype: Optional[torch.dtype] = None
         ) -> None:
 
         if activation == "swiglu":
@@ -74,7 +74,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             rope_base: int = 10000,
             batch_first: bool = False,
             device: Device = None,
-            dtype: Optional[torch.device] = None
+            dtype: Optional[torch.dtype] = None
         ) -> None:
 
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
@@ -244,7 +244,7 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             norm_first: bool = False,
             bias: bool = True,
             device: Device = None,
-            dtype: Optional[torch.device] = None
+            dtype: Optional[torch.dtype] = None
         ) -> None:
 
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm, norm_eps, batch_first, norm_first, bias, device, dtype)
