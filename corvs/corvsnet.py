@@ -79,7 +79,7 @@ class CorVSNet(BaseModule):
             case "rms":
                 xfmr_norm = nn.RMSNorm(self.hparams["xfmr_d_model"])
             case _:
-                raise ValueError("only layer or RMS normalization is supported for Transformer")
+                raise ValueError("only layer and RMS normalization is supported for Transformer")
 
         self.xfmr = nn.TransformerEncoder(xfmr_layer, self.hparams["xfmr_n_layers"], norm=xfmr_norm, enable_nested_tensor=False)
 

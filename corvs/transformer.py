@@ -1,8 +1,9 @@
-from typing import Any, Callable, Literal, Optional
+from typing import Callable, Literal, Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
+from torch.types import Device
 from torchtune import modules
 from corvs.embedding import RotaryPositionalEmbeddings
 
@@ -25,9 +26,10 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
-            device: Any = None,
-            dtype: Any = None
+            device: Device = None,
+            dtype: Optional[torch.device] = None
         ) -> None:
+
         if activation == "swiglu":
             super().__init__(d_model, nhead, dim_feedforward, dropout, layer_norm_eps=norm_eps, batch_first=batch_first, norm_first=norm_first, bias=bias, device=device, dtype=dtype)
 
@@ -69,13 +71,14 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             add_zero_attn: bool = False,
             kdim: Optional[int] = None,
             vdim: Optional[int] = None,
+            rope_base: int = 10000,
             batch_first: bool = False,
-            device: Any = None,
-            dtype: Any = None,
-            rope_base: int = 10000
+            device: Device = None,
+            dtype: Optional[torch.device] = None
         ) -> None:
+
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
-        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, max_seq_len=time_len, base=rope_base)
+        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, time_len, rope_base)
 
     def forward(
             self,
@@ -88,6 +91,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             average_attn_weights: bool = True,
             is_causal: bool = False
         ) -> tuple[torch.FloatTensor, torch.FloatTensor | None]:
+
         why_not_fast_path = ""
         if attn_mask is not None and torch.is_floating_point(attn_mask) or key_padding_mask is not None and torch.is_floating_point(key_padding_mask):
             why_not_fast_path = "floating-point masks are not supported for fast path."
@@ -235,12 +239,13 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
             norm: Literal["layer", "rms"] = "layer",
             norm_eps: float = 1e-5,
+            rope_base: int = 10000,
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
-            device: Any = None,
-            dtype: Any = None,
-            rope_base: int = 10000
+            device: Device = None,
+            dtype: Optional[torch.device] = None
         ) -> None:
+
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm, norm_eps, batch_first, norm_first, bias, device, dtype)
-        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, batch_first=batch_first, device=device, dtype=dtype, rope_base=rope_base)
+        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, rope_base=rope_base, batch_first=batch_first, device=device, dtype=dtype)
