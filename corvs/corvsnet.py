@@ -25,7 +25,7 @@ class CorVSNet(BaseModule):
         if self.hparams["cnn_sep"]:
             self.cnn = SeparableDualCNN(
                 len(self.in_mets),
-                self.hparams["xformer_d_model"],
+                self.hparams["xfmr_d_model"],
                 self.hparams["cnn_ks_s"],
                 self.hparams["cnn_fn"],
                 utils.str_to_mod(self.hparams["cnn_act"], True)
@@ -33,7 +33,7 @@ class CorVSNet(BaseModule):
         else:
             self.cnn = DualCNN(
                 len(self.in_mets),
-                self.hparams["xformer_d_model"],
+                self.hparams["xfmr_d_model"],
                 self.hparams["cnn_ks_s"],
                 utils.str_to_mod(self.hparams["cnn_act"], True)
             )
@@ -41,61 +41,61 @@ class CorVSNet(BaseModule):
         if self.hparams["min_in_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
 
-        xformer_time_len = self.hparams["win_len"] - self.cnn.recept_field + 1
+        xfmr_time_len = self.hparams["win_len"] - self.cnn.recept_field + 1
         if self.hparams["cls_tok"]:
-            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
-            xformer_time_len += 1
-        match self.hparams["xformer_pos_enc"]:
+            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xfmr_d_model"], dtype=torch.float32))
+            xfmr_time_len += 1
+        match self.hparams["xfmr_pos_enc"]:
             case "sinusoidal":
-                self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xformer_d_model"], xformer_time_len).unsqueeze(1), persistent=False)
-                xformer_layer = TransformerEncoderLayer(
-                    self.hparams["xformer_d_model"],
-                    self.hparams["xformer_nhead"],
-                    self.hparams["xformer_d_ff"],
-                    self.hparams["xformer_dr"],
-                    self.hparams["xformer_act"],
-                    self.hparams["xformer_norm"],
+                self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xfmr_d_model"], xfmr_time_len).unsqueeze(1), persistent=False)
+                xfmr_layer = TransformerEncoderLayer(
+                    self.hparams["xfmr_d_model"],
+                    self.hparams["xfmr_nhead"],
+                    self.hparams["xfmr_d_ff"],
+                    self.hparams["xfmr_dr"],
+                    self.hparams["xfmr_act"],
+                    self.hparams["xfmr_norm"],
                     norm_first=True
                 )
             case "learnable":
-                self.pos_emb = nn.Parameter(data=torch.empty(xformer_time_len, 1, self.hparams["xformer_d_model"], dtype=torch.float32))
-                xformer_layer = TransformerEncoderLayer(
-                    self.hparams["xformer_d_model"],
-                    self.hparams["xformer_nhead"],
-                    self.hparams["xformer_d_ff"],
-                    self.hparams["xformer_dr"],
-                    self.hparams["xformer_act"],
-                    self.hparams["xformer_norm"],
+                self.pos_emb = nn.Parameter(data=torch.empty(xfmr_time_len, 1, self.hparams["xfmr_d_model"], dtype=torch.float32))
+                xfmr_layer = TransformerEncoderLayer(
+                    self.hparams["xfmr_d_model"],
+                    self.hparams["xfmr_nhead"],
+                    self.hparams["xfmr_d_ff"],
+                    self.hparams["xfmr_dr"],
+                    self.hparams["xfmr_act"],
+                    self.hparams["xfmr_norm"],
                     norm_first=True
                 )
             case "rope":
-                xformer_layer = RoFormerEncoderLayer(
-                    self.hparams["xformer_d_model"],
-                    self.hparams["xformer_nhead"],
-                    xformer_time_len,
-                    self.hparams["xformer_d_ff"],
-                    self.hparams["xformer_dr"],
-                    self.hparams["xformer_act"],
-                    self.hparams["xformer_norm"],
+                xfmr_layer = RoFormerEncoderLayer(
+                    self.hparams["xfmr_d_model"],
+                    self.hparams["xfmr_nhead"],
+                    xfmr_time_len,
+                    self.hparams["xfmr_d_ff"],
+                    self.hparams["xfmr_dr"],
+                    self.hparams["xfmr_act"],
+                    self.hparams["xfmr_norm"],
                     norm_first=True
                 )
             case _:
-                raise ValueError(f"unknown positional encoding {self.hparams['xformer_pos_enc']} was specified")
-        self.xformer = nn.TransformerEncoder(
-            xformer_layer,
-            self.hparams["xformer_n_layers"],
-            norm=nn.LayerNorm(self.hparams["xformer_d_model"]),
+                raise ValueError(f"unknown positional encoding {self.hparams['xfmr_pos_enc']} was specified")
+        self.xfmr = nn.TransformerEncoder(
+            xfmr_layer,
+            self.hparams["xfmr_n_layers"],
+            norm=nn.LayerNorm(self.hparams["xfmr_d_model"]),
             enable_nested_tensor=False
         )
 
         if self.hparams["time_agg"] == "attn_pool":
-            self.pool = MaskedGlobalAttnPool1d(self.hparams["xformer_d_model"], 1)
+            self.pool = MaskedGlobalAttnPool1d(self.hparams["xfmr_d_model"], 1)
 
         self.mlp = nn.Sequential(
-            nn.Linear(self.hparams["xformer_d_model"], self.hparams["xformer_d_model"] // 4),
+            nn.Linear(self.hparams["xfmr_d_model"], self.hparams["xfmr_d_model"] // 4),
             utils.str_to_mod(self.hparams["mlp_act"]),
             nn.Dropout(p=self.hparams["mlp_dr"]),
-            nn.Linear(self.hparams["xformer_d_model"] // 4, 1)
+            nn.Linear(self.hparams["xfmr_d_model"] // 4, 1)
         )
 
         self.reset_parameters()
@@ -120,7 +120,7 @@ class CorVSNet(BaseModule):
 
         if self.hparams["cls_tok"]:
             init.xavier_uniform_(self.cls_tok)
-        if self.hparams["xformer_pos_enc"] == "learnable":
+        if self.hparams["xfmr_pos_enc"] == "learnable":
             init.xavier_uniform_(self.pos_emb)
 
     def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None, visible_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time), (batch, time) -> (batch, 1)
@@ -136,7 +136,7 @@ class CorVSNet(BaseModule):
         if self.hparams["cls_tok"]:
             cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
             hidden = torch.cat((cls_tok, hidden))
-        if self.hparams["xformer_pos_enc"] in ("sinusoidal", "learnable"):
+        if self.hparams["xfmr_pos_enc"] in ("sinusoidal", "learnable"):
             pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
 
@@ -150,7 +150,7 @@ class CorVSNet(BaseModule):
             visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
             valid_mask = valid_mask & visible_mask
 
-        hidden = self.xformer(hidden, src_key_padding_mask=~valid_mask)
+        hidden = self.xfmr(hidden, src_key_padding_mask=~valid_mask)
 
         hidden = einops.rearrange(hidden, "t b d -> b d t")
         match self.hparams["time_agg"]:

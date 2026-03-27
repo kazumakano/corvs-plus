@@ -15,8 +15,8 @@ def train(data_path: PathLike, split_path: PathLike, param_path: PathLike, exp_n
     split = OmegaConf.load(split_path)
     hparams = OmegaConf.load(param_path)
 
-    model = CorVSNetFitter(hparams, CorVSFitDataset)
     datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, stop=stop, seed=seed)
+    model = CorVSNetFitter(hparams, CorVSFitDataset)
 
     cbs = [
         ArgsWriter(data_path=data_path, split_path=split_path, param_path=param_path, start=start, stop=stop, seed=seed),
