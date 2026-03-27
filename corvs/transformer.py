@@ -248,4 +248,4 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
         ) -> None:
 
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm, norm_eps, batch_first, norm_first, bias, device, dtype)
-        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout=dropout, bias=bias, rope_base=rope_base, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout, bias, rope_base=rope_base, batch_first=batch_first, device=device, dtype=dtype)

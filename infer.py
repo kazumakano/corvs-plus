@@ -11,10 +11,26 @@ from corvs import CorVSNetPredictor, CorVSPredDataModule, CorVSPredDataset
 
 def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredDataset, prob: torch.FloatTensor, rel: torch.FloatTensor) -> None:
     tbl = Table("Track ID", "Worker ID", "Time (sec)", "Prob Avg", "Rel Avg", "Label")
-    tbl.add_row(str(traj_track_id), str(sensor_worker_id), str(round(dataset.tot_time_in_sec)), format(prob.mean().item(), ".3f"), format(rel.mean().item(), ".3f"), str(round(dataset.label.item())))
+    tbl.add_row(
+        str(traj_track_id),
+        str(sensor_worker_id),
+        str(round(dataset.tot_time_in_sec)),
+        format(prob.mean().item(), ".3f"),
+        format(rel.mean().item(), ".3f"),
+        str(round(dataset.label.item()))
+    )
     Console().print(tbl)
 
-def infer(data_path: PathLike, param_path: PathLike, weight_path: PathLike, traj_track_id: int, sensor_worker_id: int, start: Optional[float | str | datetime] = None, end: Optional[float | str | datetime] = None) -> None:
+def infer(
+        data_path: PathLike,
+        param_path: PathLike,
+        weight_path: PathLike,
+        traj_track_id: int,
+        sensor_worker_id: int,
+        start: Optional[float | str | datetime] = None,
+        end: Optional[float | str | datetime] = None
+    ) -> None:
+
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
