@@ -9,10 +9,10 @@ from corvs.normalization import MaskedBatchNorm1d
 
 class DualCNN(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, ks_s: int, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
-        super().__init__()
-
         if out_ch % 2 != 0:
             raise ValueError("number of out channels must be even")
+
+        super().__init__()
 
         self.act = act
         half_out_ch = out_ch // 2

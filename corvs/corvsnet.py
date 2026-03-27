@@ -221,6 +221,7 @@ class CorVSNetPredictor(CorVSNet, BasePredModule):
         spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
         linacc = sensor_input[:, :, self.sensor_mets.index(SensorMet.LINACC_NORM)]
         rel = self.rel_estim(spd, linacc, valid_mask)
+
         return prob, rel
 
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
@@ -237,10 +238,12 @@ class CorVSNetPredictor(CorVSNet, BasePredModule):
         return rel
 
     def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
-        time = batch[self.modalities.index(Modality.TIME)]
         traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
         sensor_feat = batch[self.modalities.index(Modality.SENSOR_FEAT)]
         valid_mask = batch[self.modalities.index(Modality.VALID_MASK)]
         prob, rel = self(traj_feat, sensor_feat, valid_mask)
+
+        time = batch[self.modalities.index(Modality.TIME)]
         label = batch[self.modalities.index(Modality.LABEL)]
+
         return time, prob, rel, label

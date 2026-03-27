@@ -17,27 +17,30 @@ from corvs import preprocess as preproc
 from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredDataModule, Modality, SensorMet, TrajMet
 
-TRAJ_FREQ   = 2.5
-TRAJ_RESOL  = 0.01
+TRAJ_FREQ = 2.5
+TRAJ_RESOL = 0.01
+TRAJ_TIMEOUT = 5
 SENSOR_FREQ = 100
 
-def load_traj_data(path: PathLike, track_ids: Optional[Iterable[int]] = None, label_ids: Optional[Iterable[int]] = None, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
+def load_traj_data(
+        path: PathLike,
+        track_ids: Optional[Iterable[int]] = None,
+        label_ids: Optional[Iterable[int]] = None,
+        start: Optional[float] = None,
+        end: Optional[float] = None
+    ) -> pd.DataFrame:
+
     all_data = []
     for p in sorted(Path(path).glob("trajectory_????????_??_??.csv")):
-        data = pd.read_csv(
-            p,
-            usecols=("time", "track", "x", "y", "label"),
-            dtype={"track": np.uint32, "label": np.uint32},
-            engine="pyarrow"
-        )
+        data = pd.read_csv(p, usecols=("time", "track", "x", "y", "label"), dtype={"track": np.uint32, "label": np.uint32}, engine="pyarrow")
         if track_ids is not None:
             data = data[data["track"].isin(track_ids)]
         if label_ids is not None:
             data = data[data["label"].isin(label_ids)]
         if start is not None:
             data = data[data["time"] >= start]
-        if stop is not None:
-            data = data[data["time"] < stop]
+        if end is not None:
+            data = data[data["time"] < end]
         all_data.append(data)
 
     if len(all_data) > 0:
@@ -47,14 +50,14 @@ def load_traj_data(path: PathLike, track_ids: Optional[Iterable[int]] = None, la
 
     return all_data
 
-def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = None, stop: Optional[float] = None) -> pd.DataFrame:
+def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = None, end: Optional[float] = None) -> pd.DataFrame:
     all_data = []
     for p in sorted(Path(path).glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
         data = pd.read_csv(p, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow")
         if start is not None:
             data = data[data["time"] >= start]
-        if stop is not None:
-            data = data[data["time"] < stop]
+        if end is not None:
+            data = data[data["time"] < end]
         all_data.append(data)
 
     if len(all_data) > 0:
@@ -73,8 +76,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
     def __init__(
             self,
-            root_path: PathLike,
-            cache_path: FileLike,
+            path: PathLike,
             track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
@@ -86,25 +88,28 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             pos_shift_in_sec: Optional[float] = None,
             neg_ratio: int = 1,
             start: Optional[float] = None,
-            stop: Optional[float] = None,
+            end: Optional[float] = None,
+            cache_path: Optional[FileLike] = None,
             seed: Optional[int] = None
         ) -> None:
+
         self.freq = freq_in_hz
         self.win_len, self.win_st = win_len, win_st
 
-        root_path = Path(root_path)
-        all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, stop=stop)
+        root_path = Path(path)
+        all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, end=end)
 
-        self.traj_feat:   list[torch.FloatTensor] = []
+        self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
             if len(sensor_data) / SENSOR_FREQ > min_in_len / self.freq:
-                meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
+                meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
+                meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
 
-                for _, td in preproc.seg_by_timeout(traj_data, 5):
+                for _, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                     traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                     if (len(traj_time) - 2) / TRAJ_FREQ > min_in_len / self.freq:
@@ -142,14 +147,15 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
-                if i_1 != i_2 or abs(j_1 - j_2) > vl_1 / self.win_st:
+                if i_1 != i_2 or abs(j_1 - j_2) > min(vl_1, vl_2) / self.win_st:
                     neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
         self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
 
-        self.cache(cache_path)
+        if cache_path is not None:
+            self.cache(cache_path)
 
     def cache(self, path: FileLike) -> None:
         torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
@@ -190,21 +196,22 @@ class CorVSFitDataModule(BaseFitDataModule):
             split_track_ids: Optional[tuple[ArrayLike, ArrayLike, ArrayLike]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
-            stop: Optional[float | str | datetime] = None,
+            end: Optional[float | str | datetime] = None,
             seed: Optional[int] = None
         ) -> None:
-        super().__init__(hparams)
 
         if (split_track_ids is None) == (split_ratio is None):
             raise ValueError("exactly one of track IDs or ratio must be given")
 
+        super().__init__(hparams)
+
         self.root_path = Path(path)
         self.start = utils.to_unix(start, utils.JST)
-        self.stop  = utils.to_unix(stop, utils.JST)
+        self.end = utils.to_unix(end, utils.JST)
         self.seed = seed
 
         if split_track_ids is None:
-            traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, stop=self.stop)
+            traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, end=self.end)
             traj_data = traj_data[traj_data["label"] < 1000]
             label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
             self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
@@ -225,7 +232,6 @@ class CorVSFitDataModule(BaseFitDataModule):
                 if stage == "fit" and "train" not in self.datasets.keys():
                     self.datasets["train"] = CorVSFitDataset(
                         self.root_path,
-                        Path(self.trainer.log_dir) / "train_data.pt",
                         self.track_ids["train"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
@@ -237,34 +243,35 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.hparams["pos_shift"],
                         self.hparams["neg_ratio"],
                         self.start,
-                        self.stop,
+                        self.end,
+                        Path(self.trainer.log_dir) / "train_data.pt",
                         self.seed
                     )
                 if "val" not in self.datasets.keys():
                     self.datasets["val"] = CorVSFitDataset(
                         self.root_path,
-                        Path(self.trainer.log_dir) / "val_data.pt",
                         self.track_ids["val"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
                         self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
-                        stop=self.stop,
+                        end=self.end,
+                        cache_path=Path(self.trainer.log_dir) / "val_data.pt",
                         seed=self.seed
                     )
             case "test":
                 if "test" not in self.datasets.keys():
                     self.datasets["test"] = CorVSFitDataset(
                         self.root_path,
-                        Path(self.trainer.log_dir) / "test_data.pt",
                         self.track_ids["test"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
                         self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
-                        stop=self.stop,
+                        end=self.end,
+                        cache_path=Path(self.trainer.log_dir) / "test_data.pt",
                         seed=self.seed
                     )
 
@@ -285,24 +292,25 @@ class CorVSPredDataset(CorVSDataset):
             win_len: int,
             win_st: int = 1,
             start: Optional[float] = None,
-            stop: Optional[float] = None
+            end: Optional[float] = None
         ) -> None:
         self.freq = freq_in_hz
         self.win_len, self.win_st = win_len, win_st
 
-        path = Path(path)
-        traj_data   = load_traj_data(path / "trajectory", (traj_track_id, ), start=start, stop=stop)
-        sensor_data = load_sensor_data(path / "sensor", sensor_worker_id, start, stop)
+        root_path = Path(path)
+        traj_data = load_traj_data(root_path / "trajectory", (traj_track_id, ), start=start, end=end)
+        sensor_data = load_sensor_data(root_path / "sensor", sensor_worker_id, start, end)
 
         self.time: list[torch.DoubleTensor] = []
-        self.traj_feat:   list[torch.FloatTensor] = []
+        self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         map = []
         max_win_num = 0
         if len(sensor_data) / SENSOR_FREQ > min_in_len / self.freq:
-            meas = ndimage.gaussian_filter1d(np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]])), smooth_in_sec * SENSOR_FREQ, axis=0)
+            meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
+            meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
 
-            for i, td in preproc.seg_by_timeout(traj_data, 5):
+            for i, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                 traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                 if (len(traj_time) - 2) / TRAJ_FREQ > min_in_len / self.freq:
@@ -346,13 +354,22 @@ class CorVSPredDataset(CorVSDataset):
         return tot_time
 
 class CorVSPredDataModule(BasePredDataModule):
-    def __init__(self, path: PathLike, traj_track_id: int, sensor_worker_id: int, hparams: dict[str, Any] | Namespace | DictConfig, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None) -> None:
+    def __init__(
+            self,
+            path: PathLike,
+            traj_track_id: int,
+            sensor_worker_id: int,
+            hparams: dict[str, Any] | Namespace | DictConfig,
+            start: Optional[float | str | datetime] = None,
+            end: Optional[float | str | datetime] = None
+        ) -> None:
+
         super().__init__(hparams)
 
         self.root_path = Path(path)
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
         self.start = utils.to_unix(start, utils.JST)
-        self.stop  = utils.to_unix(stop, utils.JST)
+        self.end = utils.to_unix(end, utils.JST)
 
     def setup(self, stage: Literal["predict"]) -> None:
         match stage:
@@ -367,5 +384,5 @@ class CorVSPredDataModule(BasePredDataModule):
                         self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         start=self.start,
-                        stop=self.stop
+                        end=self.end
                     )
