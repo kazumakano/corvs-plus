@@ -3,10 +3,11 @@ from typing import Optional
 import einops
 import torch
 from torch.nn import functional as F
+from torch.types import Device
 from torchtune import modules
 
 
-def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.FloatTensor:
+def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000, device: Device = None) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
@@ -19,6 +20,8 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.Fl
     base : float
         Base frequency.
         Maximum period is `2π * base`.
+    device : int | str | device | None
+        Computation device.
 
     Returns
     -------
@@ -27,10 +30,13 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000) -> torch.Fl
         Shape is (time_len, dim).
     """
 
-    freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64) / dim).exp()    # (dim / 2, )
-    pos = torch.arange(time_len, dtype=torch.float64).unsqueeze(1)    # (time_len, 1)
+    if dim % 2 != 0:
+        raise ValueError("dimension must be even")
 
-    emb = torch.empty(time_len, dim, dtype=torch.float32)
+    freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64, device=device) / dim).exp()    # (dim / 2, )
+    pos = torch.arange(time_len, dtype=torch.float64, device=device).unsqueeze(1)    # (time_len, 1)
+
+    emb = torch.empty(time_len, dim, dtype=torch.float32, device=device)
     emb[:, ::2] = torch.sin(freq * pos)
     emb[:, 1::2] = torch.cos(freq * pos)
 

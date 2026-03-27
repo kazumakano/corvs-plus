@@ -294,6 +294,7 @@ class CorVSPredDataset(CorVSDataset):
             start: Optional[float] = None,
             end: Optional[float] = None
         ) -> None:
+
         self.freq = freq_in_hz
         self.win_len, self.win_st = win_len, win_st
 
