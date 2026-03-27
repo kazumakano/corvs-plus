@@ -1,3 +1,4 @@
+import importlib
 import zoneinfo
 from datetime import datetime, tzinfo
 from os import PathLike
@@ -40,6 +41,12 @@ def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = 
             return F.silu if func else nn.SiLU(**kwargs)
         case _:
             raise ValueError("only ReLU, LeakyReLU, GELU, and SiLU are supported")
+
+def import_by_str(mod: str, qual_name: str) -> Any:
+    obj = importlib.import_module(mod)
+    for qn in qual_name.split("."):
+        obj = getattr(obj, qn)
+    return obj
 
 def save_txt(data: str, path: PathLike, mode: Literal["w", "x", "a"] = "w") -> None:
     with open(path, mode=mode) as f:

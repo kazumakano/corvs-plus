@@ -2,7 +2,7 @@ import abc
 import enum
 from argparse import Namespace
 from os import PathLike
-from typing import Any, ClassVar, Literal, Optional, Self, Sequence
+from typing import IO, Any, ClassVar, Literal, Optional, Self, Sequence
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -14,6 +14,7 @@ from torch.optim import Optimizer
 from torch.types import Device
 from torch.utils import data
 from torchtune import training
+from corvs import utils
 from corvs.loss import FocalWithLogitsLoss
 
 
@@ -94,12 +95,26 @@ class BasePredDataModule(BaseDataModule):
         )
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: tuple[str, str] | type[BaseDataset]) -> None:
         super().__init__()
-        self.save_hyperparameters(hparams)
+        self.save_hyperparameters(hparams, ignore="ds_cls")
+
+        if isinstance(ds_cls, tuple):
+            ds_cls = utils.import_by_str(*ds_cls)
         self.modalities  = tuple(ds_cls.modalities)
         self.traj_mets   = tuple(ds_cls.traj_mets)
         self.sensor_mets = tuple(ds_cls.sensor_mets)
+
+    @classmethod
+    def load_from_checkpoint(
+            cls,
+            checkpoint_path: PathLike | IO,
+            ds_cls: type[BaseDataset],
+            map_location: Optional[str | torch.device | dict[str, str]] = None,
+            **kwargs: Any
+        ) -> Self:
+
+        return super().load_from_checkpoint(checkpoint_path, map_location=map_location, strict=False, weights_only=False, ds_cls=(ds_cls.__module__, ds_cls.__qualname__), **kwargs)    # only primitive types are allowed
 
     @property
     def in_mets(self) -> tuple[TrajMet | SensorMet, ...]:
