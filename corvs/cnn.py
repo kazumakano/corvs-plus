@@ -1,8 +1,9 @@
 import math
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.types import Device
 from corvs.normalization import MaskedBatchNorm1d
 
 
@@ -56,21 +57,43 @@ class DualCNN(nn.Module):
 class SeparableConv1d(nn.Module):
     def __init__(
             self,
-            in_ch: int,
-            out_ch: int,
-            ks: int | tuple[int],
-            fn: int = 1,
-            st: int | tuple[int] = 1,
-            pad: int | tuple[int] | Literal["same", "valid"] = 0,
-            dil: int | tuple[int] = 1,
-            grps: int = 1,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int | tuple[int],
+            filter_num: int = 1,
+            stride: int | tuple[int] = 1,
+            padding: int | tuple[int] | Literal["valid", "same"] = 0,
+            dilation: int | tuple[int] = 1,
+            groups: int = 1,
             bias: bool = True,
-            pad_mode: Literal["zeros", "reflect", "replicate", "circular"] = "zeros"
+            padding_mode: Literal["zeros", "reflect", "replicate", "circular"] = "zeros",
+            device: Device = None,
+            dtype: Optional[torch.dtype] = None
         ) -> None:
         super().__init__()
 
-        self.d = nn.Conv1d(in_ch, fn * in_ch, ks, stride=st, padding=pad, dilation=dil, groups=in_ch, bias=False, padding_mode=pad_mode)
-        self.p = nn.Conv1d(fn * in_ch, out_ch, 1, groups=grps, bias=bias)
+        self.d = nn.Conv1d(
+            in_channels,
+            filter_num * in_channels,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=in_channels,
+            bias=False,
+            padding_mode=padding_mode,
+            device=device,
+            dtype=dtype
+        )
+        self.p = nn.Conv1d(
+            filter_num * in_channels,
+            out_channels,
+            1,
+            groups=groups,
+            bias=bias,
+            device=device,
+            dtype=dtype
+        )
 
     def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:    # (*, channel, time) -> (*, channel, time)
         hidden = self.d(input)
@@ -80,6 +103,18 @@ class SeparableConv1d(nn.Module):
     @property
     def kernel_size(self) -> tuple[int]:
         return self.d.kernel_size
+
+    @property
+    def stride(self) -> tuple[int]:
+        return self.d.stride
+
+    @property
+    def padding(self) -> tuple[int] | Literal["valid", "same"]:
+        return self.d.padding
+
+    @property
+    def dilation(self) -> tuple[int]:
+        return self.d.dilation
 
 class SeparableDualCNN(DualCNN):
     def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
