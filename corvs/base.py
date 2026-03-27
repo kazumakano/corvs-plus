@@ -106,14 +106,7 @@ class BaseModule(L.LightningModule):
         self.sensor_mets = tuple(ds_cls.sensor_mets)
 
     @classmethod
-    def load_from_checkpoint(
-            cls,
-            checkpoint_path: PathLike | BinaryIO,
-            ds_cls: type[BaseDataset],
-            map_location: Optional[str | torch.device | dict[str, str]] = None,
-            **kwargs: Any
-        ) -> Self:
-
+    def load_from_checkpoint(cls, checkpoint_path: PathLike | BinaryIO, ds_cls: type[BaseDataset], map_location: Optional[str | torch.device | dict[str, str]] = None, **kwargs: Any) -> Self:
         return super().load_from_checkpoint(checkpoint_path, map_location=map_location, strict=False, weights_only=False, ds_cls=(ds_cls.__module__, ds_cls.__qualname__), **kwargs)    # only primitive types are allowed for additional keyword arguments
 
     @property
