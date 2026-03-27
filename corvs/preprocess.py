@@ -46,11 +46,11 @@ def loc_to_turn_rate(loc: ArrayLike, freq_in_hz: float) -> NDArray:
     return ang_vel
 
 @overload
-def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, freq_in_hz: float, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
+def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, freq_in_hz: float, /, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
     ...
 
 @overload
-def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, time_3: ArrayLike, val_3: ArrayLike, freq_in_hz: float, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
+def sync(time_1: ArrayLike, val_1: ArrayLike, time_2: ArrayLike, val_2: ArrayLike, time_3: ArrayLike, val_3: ArrayLike, freq_in_hz: float, /, *, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
     ...
 
 def sync(*args: ArrayLike | float, kind: str = "linear") -> tuple[NDArray[np.float64], ...]:
