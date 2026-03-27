@@ -24,20 +24,9 @@ class CorVSNet(BaseModule):
 
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(
-                len(self.in_mets),
-                self.hparams["xfmr_d_model"],
-                self.hparams["cnn_ks_s"],
-                self.hparams["cnn_fn"],
-                utils.str_to_mod(self.hparams["cnn_act"], True)
-            )
+            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], utils.str_to_mod(self.hparams["cnn_act"], True))
         else:
-            self.cnn = DualCNN(
-                len(self.in_mets),
-                self.hparams["xfmr_d_model"],
-                self.hparams["cnn_ks_s"],
-                utils.str_to_mod(self.hparams["cnn_act"], True)
-            )
+            self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], utils.str_to_mod(self.hparams["cnn_act"], True))
 
         if self.hparams["min_in_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
@@ -46,6 +35,7 @@ class CorVSNet(BaseModule):
         if self.hparams["cls_tok"]:
             self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xfmr_d_model"], dtype=torch.float32))
             xfmr_time_len += 1
+
         match self.hparams["xfmr_pos_enc"]:
             case "sinusoidal":
                 self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xfmr_d_model"], xfmr_time_len).unsqueeze(1), persistent=False)
@@ -82,12 +72,16 @@ class CorVSNet(BaseModule):
                 )
             case _:
                 raise ValueError(f"unknown positional encoding {self.hparams['xfmr_pos_enc']} was specified")
-        self.xfmr = nn.TransformerEncoder(
-            xfmr_layer,
-            self.hparams["xfmr_n_layers"],
-            norm=nn.LayerNorm(self.hparams["xfmr_d_model"]),
-            enable_nested_tensor=False
-        )
+
+        match self.hparams["xfmr_norm"]:
+            case "layer":
+                xfmr_norm = nn.LayerNorm(self.hparams["xfmr_d_model"])
+            case "rms":
+                xfmr_norm = nn.RMSNorm(self.hparams["xfmr_d_model"])
+            case _:
+                raise ValueError("only layer or RMS normalization is supported for Transformer")
+
+        self.xfmr = nn.TransformerEncoder(xfmr_layer, self.hparams["xfmr_n_layers"], norm=xfmr_norm, enable_nested_tensor=False)
 
         if self.hparams["time_agg"] == "attn_pool":
             self.pool = MaskedGlobalAttnPool1d(self.hparams["xfmr_d_model"], 1)
@@ -103,7 +97,7 @@ class CorVSNet(BaseModule):
 
     def reset_parameters(self) -> None:
         for m in self.modules():
-            if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm)):
+            if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm, nn.RMSNorm)):
                 m.reset_parameters()
 
             elif isinstance(m, nn.Conv1d):
@@ -111,25 +105,31 @@ class CorVSNet(BaseModule):
                 if m.bias is not None:
                     init.zeros_(m.bias)
 
+            elif isinstance(m, nn.MultiheadAttention):
+                m._reset_parameters()
+
             elif isinstance(m, nn.Linear):
                 init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     init.zeros_(m.bias)
-
-            elif isinstance(m, nn.MultiheadAttention):
-                m._reset_parameters()
 
         if self.hparams["cls_tok"]:
             init.xavier_uniform_(self.cls_tok)
         if self.hparams["xfmr_pos_enc"] == "learnable":
             init.xavier_uniform_(self.pos_emb)
 
-    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None, visible_mask: Optional[torch.BoolTensor] = None) -> torch.FloatTensor:    # (batch, time, channel), (batch, time, channel), (batch, time), (batch, time) -> (batch, 1)
+    def forward(
+            self,
+            traj_input:   torch.FloatTensor,                    # (batch, time, channel)
+            sensor_input: torch.FloatTensor,                    # (batch, time, channel)
+            valid_mask:   Optional[torch.BoolTensor] = None,    # (batch, time)
+            visible_mask: Optional[torch.BoolTensor] = None     # (batch, time)
+        ) -> torch.FloatTensor:    # (batch, 1)
+
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
 
         hidden: torch.FloatTensor
-
         hidden = self.bn(torch.cat((traj_input, sensor_input), dim=2).transpose(1, 2), valid_mask)
         hidden = self.cnn(hidden, valid_mask)
 
@@ -179,7 +179,7 @@ class CorVSNet(BaseModule):
         return (diff_cnt < 3).all().item()
 
 class CorVSNetFitter(CorVSNet, BaseFitModule):
-    def __init__(self, hparams: dict[str, Any] | DictConfig, ds_cls: type[BaseFitDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseFitDataset]) -> None:
         super().__init__(hparams, ds_cls)
 
         self.example_input_array = (
@@ -190,15 +190,29 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         )
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss  = self.train_crit(logit, batch[self.modalities.index(Modality.LABEL)])
+        traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
+        sensor_feat = batch[self.modalities.index(Modality.SENSOR_FEAT)]
+        valid_mask = batch[self.modalities.index(Modality.VALID_MASK)]
+        visible_mask = batch[self.modalities.index(Modality.VISIBLE_MASK)]
+        logit = self(traj_feat, sensor_feat, valid_mask, visible_mask)
+
+        label = batch[self.modalities.index(Modality.LABEL)]
+        loss = self.train_crit(logit, label)
         self.log("train_loss", loss, prog_bar=True)
+
         return loss
 
     def validation_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
-        logit = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)], batch[self.modalities.index(Modality.VISIBLE_MASK)])
-        loss  = self.val_crit(logit, batch[self.modalities.index(Modality.LABEL)])
+        traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
+        sensor_feat = batch[self.modalities.index(Modality.SENSOR_FEAT)]
+        valid_mask = batch[self.modalities.index(Modality.VALID_MASK)]
+        visible_mask = batch[self.modalities.index(Modality.VISIBLE_MASK)]
+        logit = self(traj_feat, sensor_feat, valid_mask, visible_mask)
+
+        label = batch[self.modalities.index(Modality.LABEL)]
+        loss = self.val_crit(logit, label)
         self.log("val_loss", loss, prog_bar=True)
+
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredModule):
@@ -212,19 +226,21 @@ class CorVSNetPredictor(CorVSNet, BasePredModule):
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
         cnt = valid_mask.count_nonzero(dim=1)
         spd_mean = (valid_mask * spd).sum(dim=1) / cnt
-        spd_var  = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
         linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
-        linacc_var  = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
 
-        spd_run_var    = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
+        spd_run_var = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
         linacc_run_var = self.bn.running_var[self.in_mets.index(SensorMet.LINACC_NORM)]
+        rel = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
 
-        output = 1 / (1 + torch.min(spd_run_var / (spd_var + eps), linacc_run_var / (linacc_var + eps))).unsqueeze(1)
-
-        return output
+        return rel
 
     def predict_step(self, batch: list[torch.DoubleTensor | torch.FloatTensor | torch.BoolTensor], _: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         time = batch[self.modalities.index(Modality.TIME)]
-        prob, rel = self(batch[self.modalities.index(Modality.TRAJ_FEAT)], batch[self.modalities.index(Modality.SENSOR_FEAT)], batch[self.modalities.index(Modality.VALID_MASK)])
+        traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
+        sensor_feat = batch[self.modalities.index(Modality.SENSOR_FEAT)]
+        valid_mask = batch[self.modalities.index(Modality.VALID_MASK)]
+        prob, rel = self(traj_feat, sensor_feat, valid_mask)
         label = batch[self.modalities.index(Modality.LABEL)]
         return time, prob, rel, label
