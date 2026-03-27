@@ -10,16 +10,16 @@ from corvs import CorVSFitDataModule, CorVSFitDataset, CorVSNetFitter
 from corvs.callbacks import ArgsWriter, BestMetricsWriter, ErrWriter
 
 
-def train(data_path: PathLike, split_path: PathLike, param_path: PathLike, exp_name: Optional[str] = None, start: Optional[float | str | datetime] = None, stop: Optional[float | str | datetime] = None, seed: Optional[float] = None) -> None:
+def train(data_path: PathLike, split_path: PathLike, param_path: PathLike, exp_name: Optional[str] = None, start: Optional[float | str | datetime] = None, end: Optional[float | str | datetime] = None, seed: Optional[float] = None) -> None:
     torch.set_float32_matmul_precision("high")
     split = OmegaConf.load(split_path)
     hparams = OmegaConf.load(param_path)
 
-    datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, stop=stop, seed=seed)
+    datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, end=end, seed=seed)
     model = CorVSNetFitter(hparams, CorVSFitDataset)
 
     cbs = [
-        ArgsWriter(data_path=data_path, split_path=split_path, param_path=param_path, start=start, stop=stop, seed=seed),
+        ArgsWriter(data_path=data_path, split_path=split_path, param_path=param_path, start=start, end=end, seed=seed),
         BestMetricsWriter("val_loss"),
         ErrWriter(),
         callbacks.LearningRateMonitor(),
