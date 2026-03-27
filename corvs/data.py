@@ -43,10 +43,10 @@ def load_traj_data(
             data = data[data["time"] < end]
         all_data.append(data)
 
-    if len(all_data) > 0:
-        all_data = pd.concat(all_data, ignore_index=True)
-    else:
+    if len(all_data) == 0:
         all_data = pd.DataFrame(columns=("time", "track", "x", "y", "label"))
+    else:
+        all_data = pd.concat(all_data, ignore_index=True)
 
     return all_data
 
@@ -60,10 +60,10 @@ def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = No
             data = data[data["time"] < end]
         all_data.append(data)
 
-    if len(all_data) > 0:
-        all_data = pd.concat(all_data, ignore_index=True)
-    else:
+    if len(all_data) == 0:
         all_data = pd.DataFrame(columns=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"))
+    else:
+        all_data = pd.concat(all_data, ignore_index=True)
 
     return all_data
 
@@ -141,7 +141,10 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                         shift_len = max(-j * self.win_st, shift_len)
                         shift_len = min(shift_len, len(tf) - j * self.win_st - self.win_len)
                     pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
-        self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
+        if len(pos_map) == 0:
+            self.pos_map = torch.empty(0, 6, dtype=torch.int32)
+        else:
+            self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
 
         neg_map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
@@ -152,14 +155,20 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
-        self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
+        if len(neg_map) == 0:
+            self.neg_map = torch.empty(0, 5, dtype=torch.int32)
+        else:
+            self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
 
         if cache_path is not None:
-            self.cache(cache_path)
+            self.save(cache_path)
+            self.load(cache_path)
 
-    def cache(self, path: FileLike) -> None:
+    def load(self, path: FileLike, mmap: bool = True) -> None:
+        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(path, mmap=mmap)
+
+    def save(self, path: FileLike) -> None:
         torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
-        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(path, mmap=True)
 
     def __getitem__(self, idx: int) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.BoolTensor, torch.FloatTensor]:
         time_idx = torch.arange(self.win_len, dtype=torch.int32)

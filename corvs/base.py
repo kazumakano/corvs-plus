@@ -95,7 +95,7 @@ class BasePredDataModule(BaseDataModule):
         )
 
 class BaseModule(L.LightningModule):
-    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: tuple[str, str] | type[BaseDataset]) -> None:
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset] | tuple[str, str]) -> None:
         super().__init__()
         self.save_hyperparameters(hparams, ignore="ds_cls")
 
