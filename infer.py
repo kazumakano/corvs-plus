@@ -1,5 +1,6 @@
 from datetime import datetime
 from os import PathLike
+from pathlib import Path
 from typing import Optional
 import torch
 from lightning import pytorch as L
@@ -35,7 +36,13 @@ def infer(
     hparams = OmegaConf.load(param_path)
 
     datamodule = CorVSPredDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, end)
-    model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredDataset)
+    match Path(weight_path).suffix:
+        case ".ckpt":
+            model = CorVSNetPredictor.load_from_checkpoint(weight_path, CorVSPredDataset, hparams_file=param_path)
+        case ".safetensors":
+            model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredDataset)
+        case _:
+            raise ValueError("only checkpoint and safetensors are supported")
     trainer = L.Trainer(devices=1, logger=False)
 
     result = trainer.predict(model, datamodule=datamodule)
