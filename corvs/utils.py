@@ -43,6 +43,28 @@ def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = 
             raise ValueError("only ReLU, LeakyReLU, GELU, and SiLU are supported")
 
 def import_by_str(mod: str, qual_name: str) -> Any:
+    """
+    Import an object by its module and qualified names.
+
+    Parameters
+    ----------
+    mod : str
+        Module name.
+    qual_name : str
+        Qualified name.
+
+    Returns
+    -------
+    obj : Any
+        Imported object.
+
+    Examples
+    -------
+    >>> from corvs import utils
+    >>> utils.import_by_str("torch.nn", "Module")
+    <class 'torch.nn.modules.module.Module'>
+    """
+
     obj = importlib.import_module(mod)
     for qn in qual_name.split("."):
         obj = getattr(obj, qn)
