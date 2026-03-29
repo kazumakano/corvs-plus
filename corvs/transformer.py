@@ -1,9 +1,11 @@
 from typing import Callable, Literal, Optional
 import torch
-from torch import nn
+from torch import nn, overrides
+from torch.backends import mha
 from torch.nn import functional as F
 from torch.nn.modules import activation as act
 from torch.types import Device
+from torch.utils import backend_registration
 from torchtune import modules
 from corvs.embedding import RotaryPositionalEmbeddings
 
@@ -20,7 +22,7 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             nhead: int,
             dim_feedforward: int = 2048,
             dropout: float = 0.1,
-            activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
+            activation: Callable[[torch.FloatTensor], torch.FloatTensor] | Literal["relu", "gelu", "swiglu"] = F.relu,
             norm: Literal["layer", "rms"] = "layer",
             norm_eps: float = 1e-5,
             batch_first: bool = False,
@@ -102,7 +104,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
 
         attn_mask = F._canonical_mask(mask=attn_mask, mask_name="attn_mask", other_type=None, other_name="", target_type=query.dtype, check_other=False)
 
-        is_fastpath_enabled = torch.backends.mha.get_fastpath_enabled()
+        is_fastpath_enabled = mha.get_fastpath_enabled()
 
         if not is_fastpath_enabled:
             why_not_fast_path = "torch.backends.mha.get_fastpath_enabled() was not True"
@@ -137,14 +139,14 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
 
         if not why_not_fast_path:
             tensor_args = query, key, value, self.in_proj_weight, self.in_proj_bias, self.out_proj.weight, self.out_proj.bias
-            if torch.overrides.has_torch_function(tensor_args):
+            if overrides.has_torch_function(tensor_args):
                 why_not_fast_path = "some Tensor argument has_torch_function"
             elif act._is_make_fx_tracing():
                 why_not_fast_path = "we are running make_fx tracing"
             elif not all(act._check_arg_device(x) for x in tensor_args):
                 why_not_fast_path = (
                     "some Tensor argument's device is neither one of "
-                    f"cpu, cuda or {torch.utils.backend_registration._privateuse1_backend_name}"
+                    f"cpu, cuda or {backend_registration._privateuse1_backend_name}"
                 )
             elif torch.is_grad_enabled() and any(act._arg_requires_grad(x) for x in tensor_args):
                 why_not_fast_path = (
@@ -236,7 +238,7 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             dim_feedforward: int = 2048,
             seq_len: int = 4096,
             dropout: float = 0.1,
-            activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
+            activation: Callable[[torch.FloatTensor], torch.FloatTensor] | Literal["relu", "gelu", "swiglu"] = F.relu,
             norm: Literal["layer", "rms"] = "layer",
             norm_eps: float = 1e-5,
             rope_base: int = 10000,
