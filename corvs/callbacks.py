@@ -24,10 +24,13 @@ class ArgsWriter(L.Callback):
         else:
             raise ValueError("arguments must be passed as one dictionary or keyword arguments")
 
-    def on_fit_end(self, trainer: L.Trainer, _: L.LightningModule) -> None:
+    def on_fit_start(self, trainer: L.Trainer, _: L.LightningModule) -> None:
         OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
 
-    def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
+    def on_test_start(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
+        OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
+
+    def on_predict_start(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
         OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
 
 class BestMetricsWriter(L.Callback):
