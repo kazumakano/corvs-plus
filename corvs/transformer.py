@@ -64,7 +64,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
             self,
             embed_dim: int,
             num_heads: int,
-            time_len: int = 4096,
+            seq_len: int = 4096,
             dropout: float = 0.0,
             bias: bool = True,
             add_bias_kv: bool = False,
@@ -78,7 +78,7 @@ class RotaryMultiheadAttention(nn.MultiheadAttention):
         ) -> None:
 
         super().__init__(embed_dim, num_heads, dropout, bias, add_bias_kv, add_zero_attn, kdim, vdim, batch_first, device, dtype)
-        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, time_len, rope_base)
+        self.rope = RotaryPositionalEmbeddings(embed_dim // num_heads, seq_len, rope_base)
 
     def forward(
             self,
@@ -234,7 +234,7 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
             d_model: int,
             nhead: int,
             dim_feedforward: int = 2048,
-            time_len: int = 4096,
+            seq_len: int = 4096,
             dropout: float = 0.1,
             activation: Literal["relu", "gelu", "swiglu"] | Callable[[torch.FloatTensor], torch.FloatTensor] = F.relu,
             norm: Literal["layer", "rms"] = "layer",
@@ -248,4 +248,4 @@ class RoFormerEncoderLayer(TransformerEncoderLayer):
         ) -> None:
 
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation, norm, norm_eps, batch_first, norm_first, bias, device, dtype)
-        self.self_attn = RotaryMultiheadAttention(d_model, nhead, time_len, dropout, bias, rope_base=rope_base, batch_first=batch_first, device=device, dtype=dtype)
+        self.self_attn = RotaryMultiheadAttention(d_model, nhead, seq_len, dropout, bias, rope_base=rope_base, batch_first=batch_first, device=device, dtype=dtype)

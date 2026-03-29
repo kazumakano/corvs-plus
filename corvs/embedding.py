@@ -8,7 +8,7 @@ from torch.types import Device
 from torchtune import modules
 
 
-def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000, device: Device = None) -> torch.FloatTensor:
+def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Device = None) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
@@ -16,8 +16,8 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000, device: Dev
     ----------
     dim : int
         Dimension.
-    time_len : int
-        Temporal length.
+    seq_len : int
+        Sequential length.
     base : float
         Base frequency.
         Maximum period is `2π * base`.
@@ -28,23 +28,23 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000, device: Dev
     -------
     emb : FloatTensor
         Position embedding.
-        Shape is (time_len, dim).
+        Shape is (seq_len, dim).
     """
 
     if dim % 2 != 0:
         raise ValueError("dimension must be even")
 
     freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64, device=device) / dim).exp()    # (dim / 2, )
-    pos = torch.arange(time_len, dtype=torch.float64, device=device).unsqueeze(1)    # (time_len, 1)
+    pos = torch.arange(seq_len, dtype=torch.float64, device=device).unsqueeze(1)    # (seq_len, 1)
 
-    emb = torch.empty(time_len, dim, dtype=torch.float32, device=device)
+    emb = torch.empty(seq_len, dim, dtype=torch.float32, device=device)
     emb[:, ::2] = torch.sin(freq * pos)
     emb[:, 1::2] = torch.cos(freq * pos)
 
     return emb
 
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
-    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:    # (batch, time, head, dim / head) -> (batch, time, head, dim / head)
+    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:    # (batch, seq, head, dim) -> (batch, seq, head, dim)
         """
         Modified from `torchtune.modules.RotaryPositionalEmbeddings.forward()`.
         This method automatically rebuild cache when input is longer than cache.
