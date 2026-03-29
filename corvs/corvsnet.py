@@ -1,12 +1,11 @@
 from argparse import Namespace
-from typing import Any, Optional
+from typing import Any, Callable, Literal, Optional
 import einops
 import torch
 from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
-from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredModule, Modality, SensorMet, TrajMet
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
@@ -14,6 +13,19 @@ from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
 from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
+
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.Tensor], torch.Tensor]:
+    match act:
+        case "relu":
+            return F.relu if func else nn.ReLU(**kwargs)
+        case "leaky_relu":
+            return F.leaky_relu if func else nn.LeakyReLU(**kwargs)
+        case "gelu":
+            return F.gelu if func else nn.GELU(**kwargs)
+        case "silu":
+            return F.silu if func else nn.SiLU(**kwargs)
+        case _:
+            raise ValueError("only ReLU, LeakyReLU, GELU, and SiLU are supported")
 
 class CorVSNet(BaseModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
@@ -24,9 +36,9 @@ class CorVSNet(BaseModule):
 
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], utils.str_to_mod(self.hparams["cnn_act"], True))
+            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], str_to_mod(self.hparams["cnn_act"], True))
         else:
-            self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], utils.str_to_mod(self.hparams["cnn_act"], True))
+            self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], str_to_mod(self.hparams["cnn_act"], True))
 
         if self.hparams["min_in_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
@@ -88,7 +100,7 @@ class CorVSNet(BaseModule):
 
         self.mlp = nn.Sequential(
             nn.Linear(self.hparams["xfmr_d_model"], self.hparams["xfmr_d_model"] // 4),
-            utils.str_to_mod(self.hparams["mlp_act"]),
+            str_to_mod(self.hparams["mlp_act"]),
             nn.Dropout(p=self.hparams["mlp_dr"]),
             nn.Linear(self.hparams["xfmr_d_model"] // 4, 1)
         )
