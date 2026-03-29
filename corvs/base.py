@@ -110,7 +110,7 @@ class BaseModule(L.LightningModule):
             cls,
             checkpoint_path: PathLike | BinaryIO,
             ds_cls: type[BaseDataset],
-            map_location: Optional[str | torch.device | dict[str, str]] = None,
+            map_location: Optional[torch.device | str | dict[str, str]] = None,
             hparams_file: Optional[PathLike] = None,
             **kwargs: Any
         ) -> Self:
@@ -174,7 +174,7 @@ class BaseFitModule(BaseModule):
             case None:
                 return opt
             case _:
-                raise ValueError(f"unknown scheduler {self.hparams['sched']} was specified")
+                raise ValueError(f"unknown learning rate scheduler {self.hparams['sched']} was specified")
 
     def on_train_epoch_start(self) -> None:
         if self.hparams["sched"] == "free":

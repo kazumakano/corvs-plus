@@ -79,7 +79,7 @@ class CorVSNet(BaseModule):
             case "rms":
                 xfmr_norm = nn.RMSNorm(self.hparams["xfmr_d_model"])
             case _:
-                raise ValueError("only layer and RMS normalization is supported for Transformer")
+                raise ValueError("only layer and RMS normalization is supported for Transformer encoder")
 
         self.xfmr = nn.TransformerEncoder(xfmr_layer, self.hparams["xfmr_n_layers"], norm=xfmr_norm, enable_nested_tensor=False)
 
@@ -166,7 +166,7 @@ class CorVSNet(BaseModule):
             case "cls_tok":
                 hidden = hidden[:, :, 0]
             case _:
-                raise ValueError(f"unknown time aggregation {self.hparams['time_agg']} was specified")
+                raise ValueError(f"unknown time aggregation method {self.hparams['time_agg']} was specified")
 
         output = self.mlp(hidden)
 
