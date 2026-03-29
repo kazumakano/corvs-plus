@@ -24,13 +24,7 @@ class ArgsWriter(L.Callback):
         else:
             raise ValueError("arguments must be passed as one dictionary or keyword arguments")
 
-    def on_fit_start(self, trainer: L.Trainer, _: L.LightningModule) -> None:
-        OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
-
-    def on_test_start(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
-        OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
-
-    def on_predict_start(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
+    def setup(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
         OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
 
 class BestMetricsWriter(L.Callback):
@@ -53,7 +47,7 @@ class BestMetricsWriter(L.Callback):
             self.best_mets = mets | {"epoch": trainer.current_epoch, "step": trainer.global_step}
             trainer.logger.log_metrics({"hp_metric": self.best_mets[self.monitor]}, step=trainer.global_step)
 
-    def on_fit_end(self, trainer: L.Trainer, _: L.LightningModule) -> None:
+    def teardown(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
         OmegaConf.save(self.best_mets, Path(trainer.log_dir) / "metrics.yaml")
 
     def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
