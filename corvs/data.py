@@ -89,7 +89,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             neg_ratio: int = 1,
             start: Optional[float] = None,
             end: Optional[float] = None,
-            cache_path: Optional[FileLike] = None,
+            pt_path: Optional[FileLike] = None,
             seed: Optional[int] = None
         ) -> None:
 
@@ -100,7 +100,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
-        for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
+        for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data", disable=len(track_ids) == 0):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
@@ -124,7 +124,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         pos_map = []
         max_win_num = 0
-        for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs")):
+        for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs", disable=len(self.traj_feat) == 0)):
             valid_len = min(self.win_len, len(tf))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
             win_num = max(1, (len(tf) - self.win_len) // self.win_st + 1)
@@ -146,7 +146,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
 
         neg_map = []
-        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
+        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs", disable=len(self.pos_map) == 0):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
                 if i_1 != i_2 or min(vl_1, vl_2) / self.win_st < abs(j_1 - j_2):
@@ -159,15 +159,15 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         else:
             self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
 
-        if cache_path is not None:
-            self.save(cache_path)
-            self.load(cache_path)
+        if pt_path is not None:
+            self.save(pt_path)
+            self.load(pt_path)
 
     def load(self, path: FileLike, mmap: bool = True) -> None:
-        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map = torch.load(path, mmap=mmap)
+        self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map, self.win_len, self.win_st = torch.load(path, mmap=mmap)
 
     def save(self, path: FileLike) -> None:
-        torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map), path)
+        torch.save((self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map, self.win_len, self.win_st), path)
 
     def __getitem__(self, idx: int) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.BoolTensor, torch.FloatTensor]:
         time_idx = torch.arange(self.win_len, dtype=torch.int32)
@@ -196,7 +196,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     def neg_ratio(self) -> float:
         return len(self.neg_map) / len(self.pos_map)
 
-class CorVSFitDataModule(BaseFitDataModule):
+class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def __init__(
             self,
             path: PathLike,
@@ -265,7 +265,7 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.hparams["win_len"],
                         start=self.start,
                         end=self.end,
-                        cache_path=Path(self.trainer.log_dir) / "val_data.pt",
+                        pt_path=Path(self.trainer.log_dir) / "val_data.pt",
                         seed=self.seed
                     )
             case "test":
@@ -279,7 +279,7 @@ class CorVSFitDataModule(BaseFitDataModule):
                         self.hparams["win_len"],
                         start=self.start,
                         end=self.end,
-                        cache_path=Path(self.trainer.log_dir) / "test_data.pt",
+                        pt_path=Path(self.trainer.log_dir) / "test_data.pt",
                         seed=self.seed
                     )
 
@@ -289,7 +289,7 @@ class CorVSFitDataModule(BaseFitDataModule):
 
         for m in ("train", "val", "test"):
             if (pt_path := self.root_path / f"{m}_data.pt").exists():
-                dataset = CorVSFitDataset("", (), -1, -1, -1, self.hparams["win_len"], self.hparams["win_st"])
+                dataset = CorVSFitDataset("", (), -1, -1, -1, -1)
                 dataset.load(pt_path)
                 self.datasets[m] = dataset
 
@@ -374,7 +374,7 @@ class CorVSPredDataset(CorVSDataset):
             tot_time += len(tf) / self.freq
         return tot_time
 
-class CorVSPredDataModule(BasePredDataModule):
+class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
     def __init__(
             self,
             path: PathLike,

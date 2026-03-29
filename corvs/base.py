@@ -2,7 +2,7 @@ import abc
 import enum
 from argparse import Namespace
 from os import PathLike
-from typing import Any, BinaryIO, ClassVar, Literal, Optional, Self, Sequence
+from typing import Any, BinaryIO, ClassVar, Generic, Literal, Optional, Self, Sequence, TypeVar
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -50,13 +50,17 @@ class BaseFitDataset(BaseDataset, abc.ABC):
     def neg_ratio(self) -> float:
         ...
 
-class BaseDataModule(L.LightningDataModule):
+DatasetT = TypeVar("DatasetT", bound=BaseDataset)
+
+class BaseDataModule(L.LightningDataModule, Generic[DatasetT]):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.datasets: dict[Literal["train", "val", "test", "pred"], BaseDataset] = {}
+        self.datasets: dict[Literal["train", "val", "test", "pred"], DatasetT] = {}
 
-class BaseFitDataModule(BaseDataModule):
+FitDatasetT = TypeVar("FitDatasetT", bound=BaseFitDataset)
+
+class BaseFitDataModule(BaseDataModule[FitDatasetT]):
     def train_dataloader(self) -> data.DataLoader:
         return data.DataLoader(
             self.datasets["train"],
@@ -85,7 +89,7 @@ class BaseFitDataModule(BaseDataModule):
             pin_memory=True
         )
 
-class BasePredDataModule(BaseDataModule):
+class BasePredDataModule(BaseDataModule[DatasetT]):
     def predict_dataloader(self) -> data.DataLoader:
         return data.DataLoader(
             self.datasets["pred"],
