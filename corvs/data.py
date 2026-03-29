@@ -237,7 +237,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
             case "fit" | "validate":
-                if stage == "fit" and "train" not in self.datasets.keys():
+                if stage == "fit" and "train" not in self.datasets:
                     self.datasets["train"] = CorVSFitDataset(
                         self.root_path,
                         self.track_ids["train"],
@@ -255,7 +255,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                         Path(self.trainer.log_dir) / "train_data.pt",
                         self.seed
                     )
-                if "val" not in self.datasets.keys():
+                if "val" not in self.datasets:
                     self.datasets["val"] = CorVSFitDataset(
                         self.root_path,
                         self.track_ids["val"],
@@ -269,7 +269,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                         seed=self.seed
                     )
             case "test":
-                if "test" not in self.datasets.keys():
+                if "test" not in self.datasets:
                     self.datasets["test"] = CorVSFitDataset(
                         self.root_path,
                         self.track_ids["test"],
@@ -395,7 +395,7 @@ class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
     def setup(self, stage: Literal["predict"]) -> None:
         match stage:
             case "predict":
-                if "pred" not in self.datasets.keys():
+                if "pred" not in self.datasets:
                     self.datasets["pred"] = CorVSPredDataset(
                         self.root_path,
                         self.track_id,
