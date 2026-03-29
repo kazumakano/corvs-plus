@@ -82,12 +82,12 @@ class MaskedGlobalAttnPool1d(nn.Module):
         self.nhead = nhead
         self.proj = nn.Linear(d_model, self.nhead)
 
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, time), (*, time) -> (*, dim)
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:    # (*, dim, seq), (*, seq) -> (*, dim)
         score: torch.FloatTensor
         score  = self.proj(input.transpose(-2, -1))
         weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)
-        weight = einops.rearrange(weight, "... t nh -> ... t nh 1")
-        input  = einops.rearrange(input, "... (nh dh) t -> ... t nh dh", nh=self.nhead)
+        weight = einops.rearrange(weight, "... s nh -> ... s nh 1")
+        input  = einops.rearrange(input, "... (nh dh) s -> ... s nh dh", nh=self.nhead)
         output = (weight * input).sum(dim=-3).flatten(start_dim=-2)
 
         return output

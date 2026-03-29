@@ -193,12 +193,12 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             v = static_v
 
         # apply RoPE
-        q = einops.rearrange(q, "(b nh) t hd -> b t nh hd", b=bsz, nh=num_heads)
+        q = einops.rearrange(q, "(b nh) s hd -> b s nh hd", b=bsz, nh=num_heads)
         q = self(q)
-        q = einops.rearrange(q, "b t nh hd -> (b nh) t hd")
-        k = einops.rearrange(k, "(b nh) t hd -> b t nh hd", b=bsz, nh=num_heads)
+        q = einops.rearrange(q, "b s nh hd -> (b nh) s hd")
+        k = einops.rearrange(k, "(b nh) s hd -> b s nh hd", b=bsz, nh=num_heads)
         k = self(k)
-        k = einops.rearrange(k, "b t nh hd -> (b nh) t hd")
+        k = einops.rearrange(k, "b s nh hd -> (b nh) s hd")
 
         if add_zero_attn:
             zero_attn_shape = bsz * num_heads, 1, head_dim
