@@ -218,8 +218,9 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         self.end = None if end is None else utils.to_unix(end, utils.JST)
         self.seed = seed
 
+        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] | None
         if split_track_ids is not None:
-            self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] = {
+            self.track_ids = {
                 "train": np.asanyarray(split_track_ids[0], dtype=np.uint32),
                 "val": np.asanyarray(split_track_ids[1], dtype=np.uint32),
                 "test": np.asanyarray(split_track_ids[2], dtype=np.uint32)
@@ -233,6 +234,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 "val": traj_data[traj_data["label"].isin(label_ids[1])]["track"].unique(),
                 "test": traj_data[traj_data["label"].isin(label_ids[2])]["track"].unique()
             }
+        else:
+            self.track_ids = None
 
     def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         match stage:
@@ -296,7 +299,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         return self
 
     def save_split(self) -> None:
-        OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
+        if self.track_ids is not None:
+            OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
 
 class CorVSPredDataset(CorVSDataset):
     modalities = Modality.TIME, Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.LABEL
@@ -346,10 +350,11 @@ class CorVSPredDataset(CorVSDataset):
                     valid_len = min(self.win_len, len(synced_time))
                     win_num = max(1, (len(synced_time) - self.win_len) // self.win_st + 1)
                     max_win_num = max(win_num, max_win_num)
-                    self.time.append(torch.empty(win_num, dtype=torch.float64))
+                    time = torch.empty(win_num, dtype=torch.float64)
                     for j in range(win_num):
-                        self.time[-1][j] = synced_time[j * self.win_st]
+                        time[j] = synced_time[j * self.win_st]
                         map.append((i, j, valid_len))
+                    self.time.append(time)
         self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max_win_num))
 
         if len(traj_data) > 0:
