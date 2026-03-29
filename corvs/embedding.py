@@ -2,6 +2,7 @@ import math
 from typing import Optional
 import einops
 import torch
+from torch import jit
 from torch.nn import functional as F
 from torch.types import Device
 from torchtune import modules
@@ -43,7 +44,7 @@ def create_sin_pos_emb(dim: int, time_len: int, base: float = 10000, device: Dev
     return emb
 
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
-    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:
+    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:    # (batch, time, head, dim / head) -> (batch, time, head, dim / head)
         """
         Modified from `torchtune.modules.RotaryPositionalEmbeddings.forward()`.
         This method automatically rebuild cache when input is longer than cache.
@@ -51,8 +52,8 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         seq_len = x.size(1)
 
-        if seq_len > self.cache.shape[0]:
-            self.build_rope_cache(seq_len)
+        if self.cache.shape[0] < seq_len:
+            self.build_rope_cache(max_seq_len=seq_len)
 
         rope_cache = self.cache[:seq_len] if input_pos is None else self.cache[input_pos]
 
@@ -60,7 +61,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         rope_cache = rope_cache.view(-1, xshaped.size(1), 1, xshaped.size(3), 2)
 
-        x_out = torch.stack([xshaped[..., 0] * rope_cache[..., 0] - xshaped[..., 1] * rope_cache[..., 1], xshaped[..., 1] * rope_cache[..., 0] + xshaped[..., 0] * rope_cache[..., 1]], dim=-1)
+        x_out = torch.stack((xshaped[..., 0] * rope_cache[..., 0] - xshaped[..., 1] * rope_cache[..., 1], xshaped[..., 1] * rope_cache[..., 0] + xshaped[..., 0] * rope_cache[..., 1]), dim=-1)
 
         x_out = x_out.flatten(start_dim=3)
         return x_out.type_as(x)
@@ -167,8 +168,8 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
         if bias_k is not None and bias_v is not None:
             assert static_k is None, "bias cannot be added to static key."
             assert static_v is None, "bias cannot be added to static value."
-            k = torch.cat([k, bias_k.repeat(1, bsz, 1)])
-            v = torch.cat([v, bias_v.repeat(1, bsz, 1)])
+            k = torch.cat((k, bias_k.repeat(1, bsz, 1)))
+            v = torch.cat((v, bias_v.repeat(1, bsz, 1)))
             if attn_mask is not None:
                 attn_mask = F.pad(attn_mask, (0, 1))
             if key_padding_mask is not None:
@@ -201,8 +202,8 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
 
         if add_zero_attn:
             zero_attn_shape = bsz * num_heads, 1, head_dim
-            k = torch.cat([k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1)
-            v = torch.cat([v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1)
+            k = torch.cat((k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)), dim=1)
+            v = torch.cat((v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)), dim=1)
             if attn_mask is not None:
                 attn_mask = F.pad(attn_mask, (0, 1))
             if key_padding_mask is not None:
@@ -211,7 +212,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
         src_len = k.size(1)
 
         if key_padding_mask is not None:
-            if not torch.jit.is_scripting() and not torch.jit.is_tracing():
+            if not jit.is_scripting() and not jit.is_tracing():
                 F._check_key_padding_mask(key_padding_mask, src_len, bsz)
 
             key_padding_mask = key_padding_mask.view(bsz, 1, 1, src_len).expand(-1, num_heads, -1, -1).reshape(bsz * num_heads, 1, src_len)
@@ -240,7 +241,7 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             attn_output = torch.bmm(attn_output_weights, v)
 
             attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len * bsz, embed_dim)
-            attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
+            attn_output = F.linear(attn_output, out_proj_weight, bias=out_proj_bias)
             attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
 
             attn_output_weights = attn_output_weights.view(bsz, num_heads, tgt_len, src_len)
@@ -262,10 +263,10 @@ class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
             k = k.view(bsz, num_heads, src_len, head_dim)
             v = v.view(bsz, num_heads, src_len, head_dim)
 
-            attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p, is_causal)
+            attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal)
             attn_output = attn_output.permute(2, 0, 1, 3).contiguous().view(bsz * tgt_len, embed_dim)
 
-            attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
+            attn_output = F.linear(attn_output, out_proj_weight, bias=out_proj_bias)
             attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
             if not is_batched:
                 attn_output = attn_output.squeeze(1)
