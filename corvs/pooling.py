@@ -6,7 +6,7 @@ from torch.nn import functional as F
 
 def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:
     """
-    Apply masked global average pooling along time dimension.
+    Apply masked global average pooling along temporal dimension.
 
     Parameters
     ----------
@@ -27,7 +27,7 @@ def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
 
 def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:
     """
-    Apply masked global max pooling along time dimension.
+    Apply masked global max pooling along temporal dimension.
 
     Parameters
     ----------
@@ -48,7 +48,7 @@ def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
 
 def masked_global_softmax_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor, temp: float | nn.Parameter = 1) -> torch.FloatTensor:
     """
-    Apply masked global softmax pooling along time dimension.
+    Apply masked global softmax pooling along temporal dimension.
 
     Parameters
     ----------
