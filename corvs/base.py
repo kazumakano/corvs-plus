@@ -50,17 +50,18 @@ class BaseFitDataset(BaseDataset, abc.ABC):
     def neg_ratio(self) -> float:
         ...
 
+ModeT = TypeVar("ModeT", bound=Literal["train", "val", "test", "pred"])
 DatasetT = TypeVar("DatasetT", bound=BaseDataset)
 
-class BaseDataModule(L.LightningDataModule, Generic[DatasetT]):
+class BaseDataModule(L.LightningDataModule, Generic[ModeT, DatasetT]):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig) -> None:
         super().__init__()
         self.save_hyperparameters(hparams)
-        self.datasets: dict[Literal["train", "val", "test", "pred"], DatasetT] = {}
+        self.datasets: dict[ModeT, DatasetT] = {}
 
 FitDatasetT = TypeVar("FitDatasetT", bound=BaseFitDataset)
 
-class BaseFitDataModule(BaseDataModule[FitDatasetT]):
+class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatasetT]):
     def train_dataloader(self) -> data.DataLoader:
         return data.DataLoader(
             self.datasets["train"],
@@ -89,7 +90,7 @@ class BaseFitDataModule(BaseDataModule[FitDatasetT]):
             pin_memory=True
         )
 
-class BasePredDataModule(BaseDataModule[DatasetT]):
+class BasePredDataModule(BaseDataModule[Literal["pred"], DatasetT]):
     def predict_dataloader(self) -> data.DataLoader:
         return data.DataLoader(
             self.datasets["pred"],
