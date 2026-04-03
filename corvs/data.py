@@ -292,7 +292,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
 
         for m in ("train", "val", "test"):
             if (pt_path := self.root_path / f"{m}_data.pt").exists():
-                dataset = CorVSFitDataset("", (), -1, -1, -1, -1)
+                dataset = CorVSFitDataset("", (), -1, -1, -1)  # create a dummy dataset
                 dataset.load(pt_path)
                 self.datasets[m] = dataset
 

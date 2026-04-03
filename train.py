@@ -43,7 +43,8 @@ def train(
         callbacks=cbs,
         max_steps=hparams["max_step"],
         val_check_interval=hparams["val_step"],
-        check_val_every_n_epoch=None
+        check_val_every_n_epoch=None,
+        gradient_clip_val=hparams["clip_grad"]
     )
 
     trainer.fit(model, datamodule=datamodule)
