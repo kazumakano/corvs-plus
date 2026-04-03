@@ -80,9 +80,9 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
-            min_in_len: int,
             win_len: int,
             win_st: int = 1,
+            min_valid_len: int = 0,
             pos_factor: int = 1,
             pos_mask: Optional[float] = None,
             pos_shift_in_sec: Optional[float] = None,
@@ -104,14 +104,14 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
-            if min_in_len / freq_in_hz < len(sensor_data) / SENSOR_FREQ:
+            if min_valid_len / freq_in_hz < len(sensor_data) / SENSOR_FREQ:
                 meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
                 meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
 
                 for _, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                     traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                    if min_in_len / freq_in_hz < (len(traj_time) - 2) / TRAJ_FREQ:
+                    if min_valid_len / freq_in_hz < (len(traj_time) - 2) / TRAJ_FREQ:
                         loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                         spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
                         turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
@@ -246,9 +246,9 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                         self.track_ids["train"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
                         self.hparams["win_st"],
+                        self.hparams["min_in_len"],
                         self.hparams["pos_factor"],
                         self.hparams["pos_mask"],
                         self.hparams["pos_shift"],
@@ -264,8 +264,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                         self.track_ids["val"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
+                        min_valid_len=self.hparams["min_in_len"],
                         start=self.start,
                         end=self.end,
                         pt_path=Path(self.trainer.log_dir) / "val_data.pt",
@@ -278,8 +278,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                         self.track_ids["test"],
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
+                        min_valid_len=self.hparams["min_in_len"],
                         start=self.start,
                         end=self.end,
                         pt_path=Path(self.trainer.log_dir) / "test_data.pt",
@@ -312,9 +312,9 @@ class CorVSPredDataset(CorVSDataset):
             sensor_worker_id: int,
             freq_in_hz: float,
             smooth_in_sec: float,
-            min_in_len: int,
             win_len: int,
             win_st: int = 1,
+            min_valid_len: int = 0,
             start: Optional[float] = None,
             end: Optional[float] = None
         ) -> None:
@@ -331,14 +331,14 @@ class CorVSPredDataset(CorVSDataset):
         self.sensor_feat: list[torch.FloatTensor] = []
         map = []
         max_win_num = 0
-        if min_in_len / self.freq < len(sensor_data) / SENSOR_FREQ:
+        if min_valid_len / self.freq < len(sensor_data) / SENSOR_FREQ:
             meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
             meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
 
             for i, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                 traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
-                if min_in_len / self.freq < (len(traj_time) - 2) / TRAJ_FREQ:
+                if min_valid_len / self.freq < (len(traj_time) - 2) / TRAJ_FREQ:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
                     spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
                     turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
@@ -407,8 +407,8 @@ class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
                         self.worker_id,
                         self.hparams["freq"],
                         self.hparams["smooth"],
-                        self.hparams["min_in_len"],
                         self.hparams["win_len"],
+                        min_valid_len=self.hparams["min_in_len"],
                         start=self.start,
                         end=self.end
                     )
