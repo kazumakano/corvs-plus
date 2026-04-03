@@ -17,7 +17,8 @@ def train(
         exp_name: Optional[str] = None,
         start: Optional[float | str | datetime] = None,
         end: Optional[float | str | datetime] = None,
-        seed: Optional[float] = None
+        seed: Optional[float] = None,
+        devices: int | str | list[int] = 1
     ) -> None:
 
     torch.set_float32_matmul_precision("high")
@@ -38,7 +39,7 @@ def train(
     if hparams["patience"] is not None:
         cbs.append(callbacks.EarlyStopping("val_loss", patience=hparams["patience"]))
     trainer = L.Trainer(
-        devices=1,
+        devices=devices,
         logger=loggers.TensorBoardLogger(Path(__file__).parent / "runs", name=exp_name),
         callbacks=cbs,
         max_steps=hparams["max_step"],
@@ -49,7 +50,8 @@ def train(
 
     trainer.fit(model, datamodule=datamodule)
 
-    datamodule.save_split()
+    if trainer.is_global_zero:
+        datamodule.save_split()
 
 if __name__ == "__main__":
     import argparse
@@ -62,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--from", help="start datetime in JST", metavar="DATETIME", dest="from_")
     parser.add_argument("--to", help="end datetime in JST", metavar="DATETIME")
     parser.add_argument("--seed", type=int, help="random seed")
+    parser.add_argument("--devices", nargs="+", default=[0], type=int, help="computation device indices", metavar="IDX")
     args = parser.parse_args()
 
-    train(args.data_path, args.split_path, args.param_path, args.exp_name, args.from_, args.to, args.seed)
+    train(args.data_path, args.split_path, args.param_path, args.exp_name, args.from_, args.to, args.seed, args.devices)

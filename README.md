@@ -38,18 +38,20 @@ python infer.py \
   -t 7 \
   -s 3 \
   --from '2024-10-03 11:30:00' \
-  --to '2024-10-03 12:00:00'
+  --to '2024-10-03 12:00:00' \
+  --devices 0
 ```
 
-| Argument                  | Description                           | Type | Required | Default                     |
-| ------------------------- | ------------------------------------- | ---- | -------- | --------------------------- |
-| `-d` `--data_path`        | Path to dataset root directory        | str  | Yes      | `dataset/`                  |
-| `-p` `--param_path`       | Path to hyperparameter file           | str  | Yes      | `configs/hparams.yaml`      |
-| `-w` `--weight_path`      | Path to model weight file             | str  | Yes      | `dataset/model.safetensors` |
-| `-t` `--traj_track_id`    | Track ID of trajectory                | int  | Yes      |                             |
-| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int  | Yes      |                             |
-| `--from`                  | Start datetime in Japan Standard Time | str  |          |                             |
-| `--to`                    | End datetime in Japan Standard Time   | str  |          |                             |
+| Argument                  | Description                           | Type      | Required | Default                     |
+| ------------------------- | ------------------------------------- | --------- | -------- | --------------------------- |
+| `-d` `--data_path`        | Path to dataset root directory        | str       |          | `dataset/`                  |
+| `-p` `--param_path`       | Path to hyperparameter file           | str       |          | `configs/hparams.yaml`      |
+| `-w` `--weight_path`      | Path to model weight file             | str       |          | `dataset/model.safetensors` |
+| `-t` `--traj_track_id`    | Track ID of trajectory                | int       | Yes      |                             |
+| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int       | Yes      |                             |
+| `--from`                  | Start datetime in Japan Standard Time | str       |          |                             |
+| `--to`                    | End datetime in Japan Standard Time   | str       |          |                             |
+| `--devices`               | Computation device indices            | list[int] |          | `[0]`                       |
 
 ## Contact
 Kazuma Kano \

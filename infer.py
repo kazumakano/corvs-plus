@@ -29,7 +29,8 @@ def infer(
         traj_track_id: int,
         sensor_worker_id: int,
         start: Optional[float | str | datetime] = None,
-        end: Optional[float | str | datetime] = None
+        end: Optional[float | str | datetime] = None,
+        devices: int | str | list[int] = 1
     ) -> None:
 
     torch.set_float32_matmul_precision("high")
@@ -43,11 +44,11 @@ def infer(
             model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredDataset)
         case _:
             raise ValueError("only checkpoint and safetensors are supported")
-    trainer = L.Trainer(devices=1, logger=False)
+    trainer = L.Trainer(devices=devices, logger=False)
 
     result = trainer.predict(model, datamodule=datamodule)
 
-    if result is not None:
+    if trainer.is_global_zero and result is not None:
         prob = torch.cat([r[1] for r in result])
         rel = torch.cat([r[2] for r in result])
         show_summary(traj_track_id, sensor_worker_id, datamodule.datasets["pred"], prob, rel)
@@ -63,6 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sensor_worker_id", type=int, required=True, help="worker ID of sensor measurements", metavar="WORKER_ID")
     parser.add_argument("--from", help="start datetime in JST", metavar="DATETIME", dest="from_")
     parser.add_argument("--to", help="end datetime in JST", metavar="DATETIME")
+    parser.add_argument("--devices", nargs="+", default=[0], type=int, help="computation device indices", metavar="IDX")
     args = parser.parse_args()
 
-    infer(args.data_path, args.param_path, args.weight_path, args.traj_track_id, args.sensor_worker_id, args.from_, args.to)
+    infer(args.data_path, args.param_path, args.weight_path, args.traj_track_id, args.sensor_worker_id, args.from_, args.to, args.devices)
