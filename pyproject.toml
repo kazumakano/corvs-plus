@@ -16,10 +16,10 @@ requires-python = ">=3.11, <3.12"
 dependencies = [
     "einops>=0.8.2",
     "lightning>=2.6.1",
-    "numba>=0.64.0",
-    "numpy>=2.4.3",
+    "numba>=0.65.0",
+    "numpy>=2.4.4",
     "omegaconf>=2.3.0",
-    "pandas>=3.0.1",
+    "pandas>=3.0.2",
     "python-dateutil>=2.9.0.post0",
     "pytorch_optimizer>=3.10.0",
     "rich>=14.3.3",
@@ -36,6 +36,11 @@ dependencies = [
 train = [
     "setuptools==80.8.0",
     "tensorboard>=2.20.0",
+]
+
+[tool.uv]
+constraint-dependencies = [
+    "datasets>=2.14.5",
 ]
 
 [project.urls]
