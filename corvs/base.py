@@ -126,7 +126,7 @@ class BaseModule(L.LightningModule):
             hparams_file=hparams_file,
             strict=False,
             weights_only=False,
-            ds_cls=(ds_cls.__module__, ds_cls.__qualname__),    # only primitive types are allowed for extra keyword arguments
+            ds_cls=(ds_cls.__module__, ds_cls.__qualname__),  # only primitive types are allowed for extra keyword arguments
             **kwargs
         )
 
@@ -204,6 +204,6 @@ class BasePredModule(BaseModule):
     @classmethod
     def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
         self = cls(hparams=hparams, ds_cls=ds_cls, **kwargs)
-        safetensors.load_model(self, path)    # device argument does not work with lightning
+        safetensors.load_model(self, path)  # device argument does not work with lightning
         self = self.to(device=device).eval()
         return self

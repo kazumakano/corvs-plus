@@ -28,7 +28,7 @@ class DualCNN(nn.Module):
         self.conv_3_l = nn.Conv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, bias=False)
         self.bn_3_l   = MaskedBatchNorm1d(half_out_ch)
 
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:  # (batch, ch, time), (batch, time) -> (batch, ch, time)
         hidden:   torch.FloatTensor
         hidden_s: torch.FloatTensor
         hidden_l: torch.FloatTensor
@@ -95,7 +95,7 @@ class SeparableConv1d(nn.Module):
             dtype=dtype
         )
 
-    def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:    # (*, channel, time) -> (*, channel, time)
+    def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:  # (*, ch, time) -> (*, ch, time)
         hidden = self.d(input)
         output = self.p(hidden)
         return output

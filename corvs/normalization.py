@@ -5,7 +5,7 @@ from torch.nn import functional as F
 
 
 class MaskedBatchNorm1d(nn.BatchNorm1d):
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:    # (batch, channel, time), (batch, time) -> (batch, channel, time)
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> torch.FloatTensor:  # (batch, ch, time), (batch, time) -> (batch, ch, time)
         """
         Modified from `torch.nn.BatchNorm1d.forward()`.
         This method supports masking.
@@ -14,7 +14,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
         ----------
         input : FloatTensor
             Input.
-            Shape is (batch, channel, time).
+            Shape is (batch, ch, time).
         valid_mask : BoolTensor | FloatTensor | IntTensor
             Mask of valid times.
             True for valid and False for invalid.
@@ -24,7 +24,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
         -------
         output : FloatTensor
             Normalized output.
-            Shape is (batch, channel, time).
+            Shape is (batch, ch, time).
         """
 
         self._check_input_dim(input)
@@ -95,8 +95,8 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 
         if training:
             cnt = valid_mask.count_nonzero()
-            mean = (valid_mask.unsqueeze(1) * input).sum(dim=(0, 2)) / cnt    # (channel, )
-            var = (valid_mask.unsqueeze(1) * (input - mean.unsqueeze(0).unsqueeze(2)) ** 2).sum(dim=(0, 2)) / cnt    # (channel, )
+            mean = (valid_mask.unsqueeze(1) * input).sum(dim=(0, 2)) / cnt  # (ch, )
+            var = (valid_mask.unsqueeze(1) * (input - mean.unsqueeze(0).unsqueeze(2)) ** 2).sum(dim=(0, 2)) / cnt  # (ch, )
             if running_mean is not None and running_var is not None:
                 running_mean.copy_((1 - momentum) * running_mean + momentum * mean)
                 running_var.copy_((1 - momentum) * running_var + momentum * cnt / (cnt - 1) * var)

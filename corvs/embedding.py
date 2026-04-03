@@ -34,8 +34,8 @@ def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Devi
     if dim % 2 != 0:
         raise ValueError("dimension must be even")
 
-    freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64, device=device) / dim).exp()    # (dim / 2, )
-    pos = torch.arange(seq_len, dtype=torch.float64, device=device).unsqueeze(1)    # (seq_len, 1)
+    freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64, device=device) / dim).exp()  # (dim / 2, )
+    pos = torch.arange(seq_len, dtype=torch.float64, device=device).unsqueeze(1)  # (seq_len, 1)
 
     emb = torch.empty(seq_len, dim, dtype=torch.float32, device=device)
     emb[:, ::2] = torch.sin(freq * pos)
@@ -44,7 +44,7 @@ def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Devi
     return emb
 
 class RotaryPositionalEmbeddings(modules.RotaryPositionalEmbeddings):
-    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:    # (batch, seq, head, dim) -> (batch, seq, head, dim)
+    def forward(self, x: torch.FloatTensor, *, input_pos: Optional[torch.IntTensor] = None) -> torch.FloatTensor:  # (batch, seq, head, dim) -> (batch, seq, head, dim)
         """
         Modified from `torchtune.modules.RotaryPositionalEmbeddings.forward()`.
         This method automatically rebuild cache when input is longer than cache.

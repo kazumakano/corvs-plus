@@ -132,11 +132,11 @@ class CorVSNet(BaseModule):
 
     def forward(
             self,
-            traj_input:   torch.FloatTensor,                    # (batch, time, channel)
-            sensor_input: torch.FloatTensor,                    # (batch, time, channel)
-            valid_mask:   Optional[torch.BoolTensor] = None,    # (batch, time)
-            visible_mask: Optional[torch.BoolTensor] = None     # (batch, time)
-        ) -> torch.FloatTensor:    # (batch, 1)
+            traj_input:   torch.FloatTensor,                  # (batch, time, ch)
+            sensor_input: torch.FloatTensor,                  # (batch, time, ch)
+            valid_mask:   Optional[torch.BoolTensor] = None,  # (batch, time)
+            visible_mask: Optional[torch.BoolTensor] = None   # (batch, time)
+        ) -> torch.FloatTensor:  # (batch, 1)
 
         if valid_mask is None:
             valid_mask = torch.ones(traj_input.shape[:2], dtype=torch.bool, device=traj_input.device)
@@ -157,10 +157,10 @@ class CorVSNet(BaseModule):
         if visible_mask is not None:
             if not self._mask_is_contig(~visible_mask):
                 raise ValueError("invisible region must be contiguous")
-            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)    # (time, )
-            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values             # (batch, )
-            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values            # (batch, )
-            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))    # (batch, time)
+            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)  # (time, )
+            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values           # (batch, )
+            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values          # (batch, )
+            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))  # (batch, time)
             valid_mask = valid_mask & visible_mask
 
         hidden = self.xfmr(hidden, src_key_padding_mask=~valid_mask)
@@ -228,7 +228,7 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         return loss
 
 class CorVSNetPredictor(CorVSNet, BasePredModule):
-    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:    # (batch, time, channel), (batch, time, channel), (batch, time) -> (batch, 1), (batch, 1)
+    def forward(self, traj_input: torch.FloatTensor, sensor_input: torch.FloatTensor, valid_mask: Optional[torch.BoolTensor] = None) -> tuple[torch.FloatTensor, torch.FloatTensor]:  # (batch, time, ch), (batch, time, ch), (batch, time) -> (batch, 1), (batch, 1)
         prob = F.sigmoid(super().forward(traj_input, sensor_input, valid_mask))
         spd = traj_input[:, :, self.traj_mets.index(TrajMet.SPD)]
         linacc = sensor_input[:, :, self.sensor_mets.index(SensorMet.LINACC_NORM)]
@@ -236,7 +236,7 @@ class CorVSNetPredictor(CorVSNet, BasePredModule):
 
         return prob, rel
 
-    def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:    # (batch, time), (batch, time), (batch, time) -> (batch, 1)
+    def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:  # (batch, time), (batch, time), (batch, time) -> (batch, 1)
         cnt = valid_mask.count_nonzero(dim=1)
         spd_mean = (valid_mask * spd).sum(dim=1) / cnt
         spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
