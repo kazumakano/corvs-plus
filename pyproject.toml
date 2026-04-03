@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Implementation of CorVS+"
 readme = "README.md"
 authors = [
-    { name = "Kazuma Kano", email = "kazuma@ucl.nuee.nagoya-u.ac.jp" }
+    {name = "Kazuma Kano", email = "kazuma@ucl.nuee.nagoya-u.ac.jp"}
 ]
 license-files = ["LICENSE"]
 
