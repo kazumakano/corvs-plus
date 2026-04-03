@@ -39,7 +39,7 @@ class SensorMet(enum.Enum):
     GYRO_Y      = enum.auto()
     GYRO_Z      = enum.auto()
 
-class BaseDataset(data.Dataset):
+class BaseDataset(data.Dataset[Sequence[Any]]):
     modalities:  ClassVar[Sequence[Modality]]
     traj_mets:   ClassVar[Sequence[TrajMet]]
     sensor_mets: ClassVar[Sequence[SensorMet]]
@@ -62,7 +62,7 @@ class BaseDataModule(L.LightningDataModule, Generic[ModeT, DatasetT]):
 FitDatasetT = TypeVar("FitDatasetT", bound=BaseFitDataset)
 
 class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatasetT]):
-    def train_dataloader(self) -> data.DataLoader:
+    def train_dataloader(self) -> data.DataLoader[Sequence[Any]]:
         return data.DataLoader(
             self.datasets["train"],
             batch_size=self.hparams["bsz"],
@@ -73,7 +73,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
             persistent_workers=True
         )
 
-    def val_dataloader(self) -> data.DataLoader:
+    def val_dataloader(self) -> data.DataLoader[Sequence[Any]]:
         return data.DataLoader(
             self.datasets["val"],
             batch_size=self.hparams["bsz"],
@@ -82,7 +82,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
             persistent_workers=True
         )
 
-    def test_dataloader(self) -> data.DataLoader:
+    def test_dataloader(self) -> data.DataLoader[Sequence[Any]]:
         return data.DataLoader(
             self.datasets["test"],
             batch_size=self.hparams["bsz"],
@@ -91,7 +91,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
         )
 
 class BasePredDataModule(BaseDataModule[Literal["pred"], DatasetT]):
-    def predict_dataloader(self) -> data.DataLoader:
+    def predict_dataloader(self) -> data.DataLoader[Sequence[Any]]:
         return data.DataLoader(
             self.datasets["pred"],
             batch_size=self.hparams["bsz"],
