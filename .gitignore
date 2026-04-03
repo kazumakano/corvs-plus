@@ -1,6 +1,12 @@
 .venv/
 .vscode/
-configs/
+
+configs/*
+!configs/hparams.yaml
+!configs/split.yaml
+
 corvs/__pycache__/
 dataset/
 runs/
+
+*.ipynb
