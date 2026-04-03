@@ -38,12 +38,12 @@ train = [
     "tensorboard>=2.20.0",
 ]
 
-[tool.uv]
-constraint-dependencies = [
-    "datasets>=2.14.5",
-]
-
 [project.urls]
 Paper = ""
 Dataset = "https://doi.org/10.5281/zenodo.17745683"
 Code = "https://github.com/kazumakano/corvs-plus"
+
+[tool.uv]
+constraint-dependencies = [
+    "datasets>=2.14.5",
+]
