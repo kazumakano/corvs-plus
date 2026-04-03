@@ -1,9 +1,9 @@
 # data
 freq: 10
 smooth: 0.2
-min_in_len: 21
 win_len: 600
 win_st: 10
+min_in_len: 21
 pos_factor: 4
 pos_mask: 0.275
 pos_shift: 0.25
