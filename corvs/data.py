@@ -161,7 +161,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         if pt_path is not None:
             self.save(pt_path)
-            self.load(pt_path)
+            self.load(pt_path)  # reload as memory mapped data
 
     def load(self, path: FileLike, mmap: bool = True) -> None:
         self.traj_feat, self.sensor_feat, self.pos_map, self.neg_map, self.win_len, self.win_st = torch.load(path, mmap=mmap)
@@ -196,6 +196,12 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     def neg_ratio(self) -> float:
         return len(self.neg_map) / len(self.pos_map)
 
+    @classmethod
+    def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
+        self = cls.__new__(cls)  # create a dummy
+        self.load(path, mmap)
+        return self
+
 class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def __init__(
             self,
@@ -205,6 +211,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
             end: Optional[float | str | datetime] = None,
+            pts_path: Optional[PathLike] = None,
             seed: Optional[int] = None
         ) -> None:
 
@@ -216,6 +223,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         self.root_path = Path(path)
         self.start = None if start is None else utils.to_unix(start, utils.JST)
         self.end = None if end is None else utils.to_unix(end, utils.JST)
+        self.pts_path = None if pts_path is None else Path(pts_path)
         self.seed = seed
 
         self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] | None
@@ -237,70 +245,93 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         else:
             self.track_ids = None
 
-    def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
+    def prepare_data(self) -> None:
+        """
+        Build datasets and save them to pt files.
+        This method will be called once in zero-rank process.
+        """
+
+        if self.pts_path is not None:
+            self.pts_path.mkdir(parents=True, exist_ok=True)
+
+        if "train" not in self.datasets:
+            CorVSFitDataset(
+                self.root_path,
+                self.track_ids["train"],
+                self.hparams["freq"],
+                self.hparams["smooth"],
+                self.hparams["win_len"],
+                self.hparams["win_st"],
+                self.hparams["min_in_len"],
+                self.hparams["pos_factor"],
+                self.hparams["pos_mask"],
+                self.hparams["pos_shift"],
+                self.hparams["neg_ratio"],
+                self.start,
+                self.end,
+                None if self.pts_path is None else self.pts_path / "train_data.pt",
+                self.seed
+            )
+        if "val" not in self.datasets:
+            CorVSFitDataset(
+                self.root_path,
+                self.track_ids["val"],
+                self.hparams["freq"],
+                self.hparams["smooth"],
+                self.hparams["win_len"],
+                min_valid_len=self.hparams["min_in_len"],
+                start=self.start,
+                end=self.end,
+                pt_path=None if self.pts_path is None else self.pts_path / "val_data.pt",
+                seed=self.seed
+            )
+        if "test" not in self.datasets:
+            CorVSFitDataset(
+                self.root_path,
+                self.track_ids["test"],
+                self.hparams["freq"],
+                self.hparams["smooth"],
+                self.hparams["win_len"],
+                min_valid_len=self.hparams["min_in_len"],
+                start=self.start,
+                end=self.end,
+                pt_path=None if self.pts_path is None else self.pts_path / "test_data.pt",
+                seed=self.seed
+            )
+
+    def setup(self, stage: Literal["fit", "val", "test"]) -> None:
+        """
+        Load datasets from pt files.
+        This method will be called in every process.
+
+        Parameters
+        ----------
+        stage : "fit" | "val" | "test"
+            Stage to setup.
+        """
+
         match stage:
-            case "fit" | "validate":
+            case "fit" | "val":
                 if stage == "fit" and "train" not in self.datasets:
-                    self.datasets["train"] = CorVSFitDataset(
-                        self.root_path,
-                        self.track_ids["train"],
-                        self.hparams["freq"],
-                        self.hparams["smooth"],
-                        self.hparams["win_len"],
-                        self.hparams["win_st"],
-                        self.hparams["min_in_len"],
-                        self.hparams["pos_factor"],
-                        self.hparams["pos_mask"],
-                        self.hparams["pos_shift"],
-                        self.hparams["neg_ratio"],
-                        self.start,
-                        self.end,
-                        Path(self.trainer.log_dir) / "train_data.pt",
-                        self.seed
-                    )
+                    self.datasets["train"] = CorVSFitDataset.from_pt(self.pts_path / "train_data.pt")
                 if "val" not in self.datasets:
-                    self.datasets["val"] = CorVSFitDataset(
-                        self.root_path,
-                        self.track_ids["val"],
-                        self.hparams["freq"],
-                        self.hparams["smooth"],
-                        self.hparams["win_len"],
-                        min_valid_len=self.hparams["min_in_len"],
-                        start=self.start,
-                        end=self.end,
-                        pt_path=Path(self.trainer.log_dir) / "val_data.pt",
-                        seed=self.seed
-                    )
+                    self.datasets["val"] = CorVSFitDataset.from_pt(self.pts_path / "val_data.pt")
             case "test":
                 if "test" not in self.datasets:
-                    self.datasets["test"] = CorVSFitDataset(
-                        self.root_path,
-                        self.track_ids["test"],
-                        self.hparams["freq"],
-                        self.hparams["smooth"],
-                        self.hparams["win_len"],
-                        min_valid_len=self.hparams["min_in_len"],
-                        start=self.start,
-                        end=self.end,
-                        pt_path=Path(self.trainer.log_dir) / "test_data.pt",
-                        seed=self.seed
-                    )
+                    self.datasets["test"] = CorVSFitDataset.from_pt(self.pts_path / "test_data.pt")
 
     @classmethod
     def load_from_pts(cls, path: PathLike, hparams: dict[str, Any] | Namespace | DictConfig) -> Self:
-        self = cls(path, hparams)
-
+        self = cls(path, hparams, pts_path=path)
         for m in ("train", "val", "test"):
-            if (pt_path := self.root_path / f"{m}_data.pt").exists():
-                dataset = CorVSFitDataset("", (), -1, -1, -1)  # create a dummy dataset
-                dataset.load(pt_path)
-                self.datasets[m] = dataset
-
+            if (pt_path := self.pts_path / f"{m}_data.pt").exists():
+                self.datasets[m] = CorVSFitDataset.from_pt(pt_path)
         return self
 
     def save_split(self) -> None:
-        if self.track_ids is not None:
-            OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, Path(self.trainer.log_dir) / "split.yaml")
+        log_path = Path(self.trainer.log_dir)
+        if self.trainer.is_global_zero and self.track_ids is not None:
+            OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, log_path / "split.yaml")
 
 class CorVSPredDataset(CorVSDataset):
     modalities = Modality.TIME, Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.LABEL

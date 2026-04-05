@@ -25,9 +25,6 @@ def train(
     split = OmegaConf.load(split_path)
     hparams = OmegaConf.load(param_path)
 
-    datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, end=end, seed=seed)
-    model = CorVSNetFitter(hparams, CorVSFitDataset)
-
     cbs = [
         ArgsWriter(data_path=data_path, split_path=split_path, param_path=param_path, start=start, end=end, seed=seed),
         BestMetricsWriter("val_loss"),
@@ -48,10 +45,12 @@ def train(
         gradient_clip_val=hparams["clip_grad"]
     )
 
+    datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, end=end, pts_path=trainer.log_dir, seed=seed)
+    model = CorVSNetFitter(hparams, CorVSFitDataset)
+
     trainer.fit(model, datamodule=datamodule)
 
-    if trainer.is_global_zero:
-        datamodule.save_split()
+    datamodule.save_split()
 
 if __name__ == "__main__":
     import argparse

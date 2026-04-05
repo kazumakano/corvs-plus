@@ -210,7 +210,7 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
 
         label = batch[self.modalities.index(Modality.LABEL)]
         loss = self.train_crit(logit, label)
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
 
         return loss
 
@@ -223,7 +223,7 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
 
         label = batch[self.modalities.index(Modality.LABEL)]
         loss = self.val_crit(logit, label)
-        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True, sync_dist=True)
 
         return loss
 
