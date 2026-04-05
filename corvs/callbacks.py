@@ -25,7 +25,10 @@ class ArgsWriter(L.Callback):
             raise ValueError("arguments must be passed as one dictionary or keyword arguments")
 
     def setup(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
-        OmegaConf.save(self.args, Path(trainer.log_dir) / "args.yaml")
+        if trainer.is_global_zero:
+            log_path = Path(trainer.log_dir)
+            log_path.mkdir(parents=True, exist_ok=True)
+            OmegaConf.save(self.args, log_path / "args.yaml")
 
 class BestMetricsWriter(L.Callback):
     def __init__(self, monitor: str, mode: Literal["min", "max"] = "min") -> None:
@@ -48,11 +51,20 @@ class BestMetricsWriter(L.Callback):
             trainer.logger.log_metrics({"hp_metric": self.best_mets[self.monitor]}, step=trainer.global_step)
 
     def teardown(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
-        OmegaConf.save(self.best_mets, Path(trainer.log_dir) / "metrics.yaml")
+        if trainer.is_global_zero:
+            log_path = Path(trainer.log_dir)
+            log_path.mkdir(parents=True, exist_ok=True)
+            OmegaConf.save(self.best_mets, log_path / "metrics.yaml")
 
     def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
-        OmegaConf.save(self.best_mets, Path(trainer.log_dir) / "metrics.yaml")
+        if trainer.is_global_zero:
+            log_path = Path(trainer.log_dir)
+            log_path.mkdir(parents=True, exist_ok=True)
+            OmegaConf.save(self.best_mets, log_path / "metrics.yaml")
 
 class ErrWriter(L.Callback):
     def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
-        utils.save_txt(traceback.format_exc(), Path(trainer.log_dir) / "error.txt")
+        if trainer.is_global_zero:
+            log_path = Path(trainer.log_dir)
+            log_path.mkdir(parents=True, exist_ok=True)
+            utils.save_txt(traceback.format_exc(), log_path / "error.txt")
