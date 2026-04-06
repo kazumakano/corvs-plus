@@ -100,7 +100,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
-        for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data", disable=len(track_ids) == 0):
+        for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
             sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
@@ -124,7 +124,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         pos_map = []
         max_win_num = 0
-        for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs", disable=len(self.traj_feat) == 0)):
+        for i, tf in enumerate(tqdm.tqdm(self.traj_feat, desc="building positive pairs")):
             valid_len = min(self.win_len, len(tf))
             mask_len = 0 if pos_mask is None else max(0, round(pos_mask * self.win_len) - self.win_len + valid_len)
             win_num = max(1, (len(tf) - self.win_len) // self.win_st + 1)
@@ -146,7 +146,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
 
         neg_map = []
-        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs", disable=len(self.pos_map) == 0):
+        for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
                 if i_1 != i_2 or min(vl_1, vl_2) / self.win_st < abs(j_1 - j_2):
@@ -248,14 +248,14 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def prepare_data(self) -> None:
         """
         Build datasets and save them to pt files.
-        This method will be called once in zero-rank process.
+        This method will be called only in zero-rank process.
         """
 
         if self.pts_path is not None:
             self.pts_path.mkdir(parents=True, exist_ok=True)
 
-        if "train" not in self.datasets:
-            CorVSFitDataset(
+        if self.pts_path is None or not (self.pts_path / "train_data.pt").exists():
+            self.datasets["train"] = CorVSFitDataset(
                 self.root_path,
                 self.track_ids["train"],
                 self.hparams["freq"],
@@ -272,8 +272,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 None if self.pts_path is None else self.pts_path / "train_data.pt",
                 self.seed
             )
-        if "val" not in self.datasets:
-            CorVSFitDataset(
+        if self.pts_path is None or not (self.pts_path / "val_data.pt").exists():
+            self.datasets["val"] = CorVSFitDataset(
                 self.root_path,
                 self.track_ids["val"],
                 self.hparams["freq"],
@@ -285,8 +285,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 pt_path=None if self.pts_path is None else self.pts_path / "val_data.pt",
                 seed=self.seed
             )
-        if "test" not in self.datasets:
-            CorVSFitDataset(
+        if self.pts_path is None or not (self.pts_path / "test_data.pt").exists():
+            self.datasets["test"] = CorVSFitDataset(
                 self.root_path,
                 self.track_ids["test"],
                 self.hparams["freq"],
@@ -319,14 +319,6 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
             case "test":
                 if "test" not in self.datasets:
                     self.datasets["test"] = CorVSFitDataset.from_pt(self.pts_path / "test_data.pt")
-
-    @classmethod
-    def load_from_pts(cls, path: PathLike, hparams: dict[str, Any] | Namespace | DictConfig) -> Self:
-        self = cls(path, hparams, pts_path=path)
-        for m in ("train", "val", "test"):
-            if (pt_path := self.pts_path / f"{m}_data.pt").exists():
-                self.datasets[m] = CorVSFitDataset.from_pt(pt_path)
-        return self
 
     def save_split(self) -> None:
         log_path = Path(self.trainer.log_dir)
