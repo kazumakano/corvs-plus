@@ -26,7 +26,7 @@ dependencies = [
     "safetensors>=0.7.0",
     "scipy>=1.17.1",
     "torch==2.9.1",
-    "torchao==0.15.0",
+    "torchao==0.17.0",
     "torchtune>=0.6.1",
     "torchvision==0.24.1",
     "tqdm>=4.67.3",

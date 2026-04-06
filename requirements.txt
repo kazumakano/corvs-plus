@@ -272,7 +272,7 @@ torch==2.9.1
     #   torchdata
     #   torchmetrics
     #   torchvision
-torchao==0.15.0
+torchao==0.17.0
     # via corvs
 torchdata==0.11.0
     # via torchtune
