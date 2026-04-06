@@ -25,7 +25,7 @@ def rand_split(data: ArrayLike, ratio: tuple[float, float, float], seed: Optiona
 def seg_by_timeout(data: pd.DataFrame, timeout_in_sec: float) -> DataFrameGroupBy:
     return data.groupby(by=(data["time"].diff() > timeout_in_sec).cumsum(), sort=False)
 
-def loc_to_spd(loc: ArrayLike, freq_in_hz: float, resol_per_px: float) -> NDArray:
+def loc_to_spd(loc: ArrayLike, freq_in_hz: float, resol_per_px: float) -> NDArray[np.float64]:
     vec = np.diff(loc, axis=0)
     dist = resol_per_px * linalg.norm(vec, axis=1)
     spd = freq_in_hz * dist
@@ -37,7 +37,7 @@ FloatingT = TypeVar("FloatingT", bound=np.floating)
 def to_convex(ang: NDArray[FloatingT]) -> NDArray[FloatingT]:
     return (ang + math.pi) % (2 * math.pi) - math.pi
 
-def loc_to_turn_rate(loc: ArrayLike, freq_in_hz: float) -> NDArray:
+def loc_to_turn_rate(loc: ArrayLike, freq_in_hz: float) -> NDArray[np.float64]:
     vec = np.diff(loc, axis=0)
     dir = np.arctan2(vec[:, 1], vec[:, 0])
     ang = to_convex(np.diff(dir))

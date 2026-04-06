@@ -1,7 +1,7 @@
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import Optional
 import torch
 from lightning import pytorch as L
 from omegaconf import OmegaConf
@@ -25,7 +25,7 @@ def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredDa
 def infer(
         data_path: str | PathLike[str],
         param_path: str | PathLike[str],
-        weight_path: str | PathLike[str] | BinaryIO,
+        weight_path: str | PathLike[str],
         traj_track_id: int,
         sensor_worker_id: int,
         start: Optional[float | str | datetime] = None,

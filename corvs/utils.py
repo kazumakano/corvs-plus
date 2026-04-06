@@ -2,7 +2,7 @@ import importlib
 import zoneinfo
 from datetime import datetime, tzinfo
 from os import PathLike
-from typing import Any, Literal, Optional, AnyStr
+from typing import Any, Literal, Optional
 import torch
 from dateutil import parser
 

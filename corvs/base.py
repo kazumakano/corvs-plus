@@ -2,7 +2,7 @@ import abc
 import enum
 from argparse import Namespace
 from os import PathLike
-from typing import Any, BinaryIO, ClassVar, Generic, Literal, Optional, Self, Sequence, TypeVar
+from typing import Any, ClassVar, Generic, Literal, Optional, Self, Sequence, TypeVar
 import pytorch_optimizer as optim
 import torch
 from lightning import pytorch as L
@@ -11,7 +11,7 @@ from omegaconf import DictConfig
 from safetensors import torch as safetensors
 from torch import nn
 from torch.optim import Optimizer
-from torch.types import Device
+from torch.types import Device, FileLike
 from torch.utils import data
 from torchtune import training
 from corvs import utils
@@ -148,7 +148,7 @@ class BaseModule(L.LightningModule):
     @classmethod
     def load_from_checkpoint(
             cls,
-            checkpoint_path: str | PathLike[str] | BinaryIO,
+            checkpoint_path: FileLike,
             ds_cls: type[BaseDataset],
             map_location: Optional[torch.device | str | dict[str, str]] = None,
             hparams_file: Optional[str | PathLike[str]] = None,
