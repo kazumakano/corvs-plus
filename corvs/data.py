@@ -23,7 +23,7 @@ TRAJ_TIMEOUT = 5
 SENSOR_FREQ = 100
 
 def load_traj_data(
-        path: PathLike,
+        path: str | PathLike[str],
         track_ids: Optional[Iterable[int]] = None,
         label_ids: Optional[Iterable[int]] = None,
         start: Optional[float] = None,
@@ -50,7 +50,7 @@ def load_traj_data(
 
     return all_data
 
-def load_sensor_data(path: PathLike, worker_id: int, start: Optional[float] = None, end: Optional[float] = None) -> pd.DataFrame:
+def load_sensor_data(path: str | PathLike[str], worker_id: int, start: Optional[float] = None, end: Optional[float] = None) -> pd.DataFrame:
     all_data = []
     for p in sorted(Path(path).glob(f"sensor_????????_??_??_{worker_id:02d}_??.csv")):
         data = pd.read_csv(p, usecols=("time", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "linacc_x", "linacc_y", "linacc_z"), engine="pyarrow")
@@ -76,7 +76,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
     def __init__(
             self,
-            path: PathLike,
+            path: str | PathLike[str],
             track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
@@ -193,8 +193,12 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         return len(self.pos_map) + len(self.neg_map)
 
     @property
-    def neg_ratio(self) -> float:
-        return len(self.neg_map) / len(self.pos_map)
+    def pos_len(self) -> int:
+        return len(self.pos_map)
+
+    @property
+    def neg_len(self) -> int:
+        return len(self.neg_map)
 
     @classmethod
     def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
@@ -205,26 +209,25 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def __init__(
             self,
-            path: PathLike,
+            path: str | PathLike[str],
             hparams: dict[str, Any] | Namespace | DictConfig,
             split_track_ids: Optional[tuple[ArrayLike, ArrayLike, ArrayLike]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
             start: Optional[float | str | datetime] = None,
             end: Optional[float | str | datetime] = None,
-            pts_path: Optional[PathLike] = None,
+            pts_path: Optional[str | PathLike[str]] = None,
             seed: Optional[int] = None
         ) -> None:
 
         if split_track_ids is not None and split_ratio is not None:
             raise ValueError("either split track IDs or ratio can be passed")
 
-        super().__init__(hparams)
+        super().__init__(hparams, seed)
 
         self.root_path = Path(path)
         self.start = None if start is None else utils.to_unix(start, utils.JST)
         self.end = None if end is None else utils.to_unix(end, utils.JST)
         self.pts_path = None if pts_path is None else Path(pts_path)
-        self.seed = seed
 
         self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] | None
         if split_track_ids is not None:
@@ -236,7 +239,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         elif split_ratio is not None:
             traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, end=self.end)
             traj_data = traj_data[traj_data["label"] < 1000]
-            label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, random.default_rng(seed=self.seed))
+            label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, self.rng.initial_seed())
             self.track_ids = {
                 "train": traj_data[traj_data["label"].isin(label_ids[0])]["track"].unique(),
                 "val": traj_data[traj_data["label"].isin(label_ids[1])]["track"].unique(),
@@ -270,7 +273,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 self.start,
                 self.end,
                 None if self.pts_path is None else self.pts_path / "train_data.pt",
-                self.seed
+                self.rng.initial_seed()
             )
         if self.pts_path is None or not (self.pts_path / "val_data.pt").exists():
             self.datasets["val"] = CorVSFitDataset(
@@ -283,7 +286,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 start=self.start,
                 end=self.end,
                 pt_path=None if self.pts_path is None else self.pts_path / "val_data.pt",
-                seed=self.seed
+                seed=self.rng.initial_seed()
             )
         if self.pts_path is None or not (self.pts_path / "test_data.pt").exists():
             self.datasets["test"] = CorVSFitDataset(
@@ -296,7 +299,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 start=self.start,
                 end=self.end,
                 pt_path=None if self.pts_path is None else self.pts_path / "test_data.pt",
-                seed=self.seed
+                seed=self.rng.initial_seed()
             )
 
     def setup(self, stage: Literal["fit", "val", "test"]) -> None:
@@ -330,7 +333,7 @@ class CorVSPredDataset(CorVSDataset):
 
     def __init__(
             self,
-            path: PathLike,
+            path: str | PathLike[str],
             traj_track_id: int,
             sensor_worker_id: int,
             freq_in_hz: float,
@@ -405,7 +408,7 @@ class CorVSPredDataset(CorVSDataset):
 class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
     def __init__(
             self,
-            path: PathLike,
+            path: str | PathLike[str],
             traj_track_id: int,
             sensor_worker_id: int,
             hparams: dict[str, Any] | Namespace | DictConfig,

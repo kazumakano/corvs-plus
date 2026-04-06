@@ -23,9 +23,9 @@ def show_summary(traj_track_id: int, sensor_worker_id: int, dataset: CorVSPredDa
     Console().print(tbl)
 
 def infer(
-        data_path: PathLike,
-        param_path: PathLike,
-        weight_path: PathLike | BinaryIO,
+        data_path: str | PathLike[str],
+        param_path: str | PathLike[str],
+        weight_path: str | PathLike[str] | BinaryIO,
         traj_track_id: int,
         sensor_worker_id: int,
         start: Optional[float | str | datetime] = None,

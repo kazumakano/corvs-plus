@@ -2,7 +2,7 @@ import importlib
 import zoneinfo
 from datetime import datetime, tzinfo
 from os import PathLike
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, AnyStr
 import torch
 from dateutil import parser
 
@@ -55,6 +55,6 @@ def import_by_str(mod: str, qual_name: str) -> Any:
         obj = getattr(obj, qn)
     return obj
 
-def save_txt(data: str, path: PathLike, mode: Literal["w", "x", "a"] = "w") -> None:
+def save_txt(data: str, path: str | bytes | PathLike[str] | PathLike[bytes], mode: Literal["w", "x", "a"] = "w") -> None:
     with open(path, mode=mode) as f:
         f.write(data)

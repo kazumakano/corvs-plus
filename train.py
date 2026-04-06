@@ -11,9 +11,9 @@ from corvs.callbacks import ArgsWriter, BestMetricsWriter, ErrWriter
 
 
 def train(
-        data_path: PathLike,
-        split_path: PathLike,
-        param_path: PathLike,
+        data_path: str | PathLike[str],
+        split_path: str | PathLike[str],
+        param_path: str | PathLike[str],
         exp_name: Optional[str] = None,
         start: Optional[float | str | datetime] = None,
         end: Optional[float | str | datetime] = None,

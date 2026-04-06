@@ -12,12 +12,11 @@ from torch.nn import functional as F
 from torch.nn.utils import rnn
 
 
-def rand_split(data: ArrayLike, ratio: tuple[float, float, float], rng: Optional[random.Generator] = None) -> list[NDArray]:
+def rand_split(data: ArrayLike, ratio: tuple[float, float, float], seed: Optional[int] = None) -> list[NDArray]:
     if sum(ratio) != 1:
         raise ValueError("summation of split proportions must be 1")
 
-    if rng is None:
-        rng = random.default_rng()
+    rng = random.default_rng(seed=seed)
     data = rng.permutation(data)
     data = np.split(data, (round(ratio[0] * len(data)), round(sum(ratio[:2]) * len(data)), len(data)))
 

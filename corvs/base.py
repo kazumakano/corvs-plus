@@ -47,8 +47,17 @@ class BaseDataset(data.Dataset[Sequence[torch.Tensor]]):
 class BaseFitDataset(BaseDataset, abc.ABC):
     @property
     @abc.abstractmethod
-    def neg_ratio(self) -> float:
+    def pos_len(self) -> int:
         ...
+
+    @property
+    @abc.abstractmethod
+    def neg_len(self) -> int:
+        ...
+
+    @property
+    def neg_ratio(self) -> float:
+        return self.neg_len / self.pos_len
 
 ModeT = TypeVar("ModeT", bound=Literal["train", "val", "test", "pred"])
 DatasetT = TypeVar("DatasetT", bound=BaseDataset)
@@ -62,16 +71,42 @@ class BaseDataModule(L.LightningDataModule, Generic[ModeT, DatasetT]):
 FitDatasetT = TypeVar("FitDatasetT", bound=BaseFitDataset)
 
 class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatasetT]):
+    def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, seed: Optional[int] = None) -> None:
+        super().__init__(hparams)
+        self.rng = torch.Generator()
+        if seed is not None:
+            self.rng.manual_seed(seed)
+
     def train_dataloader(self) -> data.DataLoader[Sequence[torch.Tensor]]:
-        return data.DataLoader(
-            self.datasets["train"],
-            batch_size=self.hparams["bsz"],
-            shuffle=True,
-            num_workers=self.hparams["n_workers"],
-            pin_memory=True,
-            drop_last=True,
-            persistent_workers=True
-        )
+        if self.hparams["balance"] == "sample":
+            return data.DataLoader(
+                self.datasets["train"],
+                batch_size=self.hparams["bsz"],
+                sampler=data.WeightedRandomSampler(
+                    torch.where(
+                        torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))) < self.datasets["train"].pos_len,
+                        self.datasets["train"].neg_ratio,
+                        1
+                    ),
+                    len(self.datasets["train"]),
+                    generator=self.rng
+                ),
+                num_workers=self.hparams["n_workers"],
+                pin_memory=True,
+                drop_last=True,
+                persistent_workers=True
+            )
+        else:
+            return data.DataLoader(
+                self.datasets["train"],
+                batch_size=self.hparams["bsz"],
+                shuffle=True,
+                num_workers=self.hparams["n_workers"],
+                pin_memory=True,
+                drop_last=True,
+                generator=self.rng,
+                persistent_workers=True
+            )
 
     def val_dataloader(self) -> data.DataLoader[Sequence[torch.Tensor]]:
         return data.DataLoader(
@@ -113,10 +148,10 @@ class BaseModule(L.LightningModule):
     @classmethod
     def load_from_checkpoint(
             cls,
-            checkpoint_path: PathLike | BinaryIO,
+            checkpoint_path: str | PathLike[str] | BinaryIO,
             ds_cls: type[BaseDataset],
             map_location: Optional[torch.device | str | dict[str, str]] = None,
-            hparams_file: Optional[PathLike] = None,
+            hparams_file: Optional[str | PathLike[str]] = None,
             **kwargs: Any
         ) -> Self:
 
@@ -139,7 +174,10 @@ class BaseFitModule(BaseModule):
         if stage == "fit":
             match self.hparams["loss"]:
                 case "bce":
-                    self.train_crit = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
+                    if self.hparams["balance"] == "loss":
+                        self.train_crit = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
+                    else:
+                        self.train_crit = nn.BCEWithLogitsLoss()
                 case "focal":
                     self.train_crit = FocalWithLogitsLoss()
                 case _:
@@ -193,7 +231,7 @@ class BaseFitModule(BaseModule):
         if self.hparams["sched"] == "free":
             self.optimizers().optimizer.eval()
 
-    def to_safetensors(self, path: PathLike, metadata: Optional[dict[str, str]] = None) -> None:
+    def to_safetensors(self, path: str | PathLike[str], metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
 class BasePredModule(BaseModule):
@@ -202,7 +240,7 @@ class BasePredModule(BaseModule):
             self.optimizers().optimizer.eval()
 
     @classmethod
-    def load_from_safetensors(cls, path: PathLike, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
+    def load_from_safetensors(cls, path: str | PathLike[str], hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
         self = cls(hparams=hparams, ds_cls=ds_cls, **kwargs)
         safetensors.load_model(self, path)  # device argument does not work with lightning
         self = self.to(device=device).eval()
