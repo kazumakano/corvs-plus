@@ -36,6 +36,8 @@ def infer(
     torch.set_float32_matmul_precision("high")
     hparams = OmegaConf.load(param_path)
 
+    trainer = L.Trainer(devices=devices, logger=False)
+
     datamodule = CorVSPredDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, end)
     match Path(weight_path).suffix:
         case ".ckpt":
@@ -44,7 +46,6 @@ def infer(
             model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredDataset)
         case _:
             raise ValueError("only checkpoint and safetensors are supported")
-    trainer = L.Trainer(devices=devices, logger=False)
 
     result = trainer.predict(model, datamodule=datamodule)
 
