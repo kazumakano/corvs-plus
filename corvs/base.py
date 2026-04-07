@@ -73,24 +73,19 @@ FitDatasetT = TypeVar("FitDatasetT", bound=BaseFitDataset)
 class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatasetT]):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, seed: Optional[int] = None) -> None:
         super().__init__(hparams)
+
         self.rng = torch.Generator()
         if seed is not None:
             self.rng.manual_seed(seed)
 
     def train_dataloader(self) -> data.DataLoader[Sequence[torch.Tensor]]:
         if self.hparams["balance"] == "sample":
+            is_pos = torch.isin(torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))), self.datasets["train"].pos_idx, assume_unique=True)
+            sampler = data.WeightedRandomSampler(torch.where(is_pos, self.datasets["train"].neg_ratio, 1), len(self.datasets["train"]), generator=self.rng)
             return data.DataLoader(
                 self.datasets["train"],
                 batch_size=self.hparams["bsz"],
-                sampler=data.WeightedRandomSampler(
-                    torch.where(
-                        torch.isin(torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))), self.datasets["train"].pos_idx, assume_unique=True),
-                        self.datasets["train"].neg_ratio,
-                        1
-                    ),
-                    len(self.datasets["train"]),
-                    generator=self.rng
-                ),
+                sampler=sampler,
                 num_workers=self.hparams["n_workers"],
                 pin_memory=True,
                 drop_last=True,
