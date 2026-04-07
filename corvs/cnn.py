@@ -32,6 +32,7 @@ class DualCNN(nn.Module):
         hidden:   torch.FloatTensor
         hidden_s: torch.FloatTensor
         hidden_l: torch.FloatTensor
+
         hidden   = self.conv_1(input)
         hidden   = self.act(self.bn_1(hidden, valid_mask[:, -hidden.shape[2]:]))
         hidden_s = self.conv_2_s(hidden)

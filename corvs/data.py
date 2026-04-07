@@ -140,10 +140,12 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                         shift_len = max(-j * self.win_st, shift_len)
                         shift_len = min(shift_len, len(tf) - j * self.win_st - self.win_len)
                     pos_map.append((i, j, valid_len, mask_pos, mask_len, shift_len))
+
+        self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor
         if len(pos_map) == 0:
             self.pos_map = torch.empty(0, 6, dtype=torch.int32)
         else:
-            self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max(len(self.traj_feat), max_win_num, self.win_len)))
+            self.pos_map = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max(len(self.traj_feat), max_win_num, self.win_len)))
 
         neg_map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
@@ -154,10 +156,12 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                     cnt += 1
                     if cnt >= neg_ratio:
                         break
+
+        self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor
         if len(neg_map) == 0:
             self.neg_map = torch.empty(0, 5, dtype=torch.int32)
         else:
-            self.neg_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(neg_map, dtype=self.pos_map.dtype)
+            self.neg_map = torch.tensor(neg_map, dtype=self.pos_map.dtype)
 
         if pt_path is not None:
             self.save(pt_path)
@@ -189,16 +193,13 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
                 torch.zeros(1, dtype=torch.float32)
             )
 
-    def __len__(self) -> int:
-        return len(self.pos_map) + len(self.neg_map)
-
     @property
     def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
         return torch.arange(len(self.pos_map), dtype=utils.get_min_int_dtype(len(self.pos_map)))
 
     @property
     def neg_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
-        return torch.arange(len(self.pos_map), len(self), dtype=utils.get_min_int_dtype(len(self)))
+        return torch.arange(len(self.pos_map), len(self.pos_map) + len(self.neg_map), dtype=utils.get_min_int_dtype(len(self.pos_map) + len(self.neg_map)))
 
     @classmethod
     def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
@@ -383,7 +384,12 @@ class CorVSPredDataset(CorVSDataset):
                         map.append((i, j, valid_len))
                     self.time.append(time)
                     i += 1
-        self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max(len(self.time), max_win_num, self.win_len)))
+
+        self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor
+        if len(map) == 0:
+            self.map = torch.empty(0, 3, dtype=torch.int32)
+        else:
+            self.map = torch.tensor(map, dtype=utils.get_min_int_dtype(max(len(self.time), max_win_num, self.win_len)))
 
         if len(traj_data) > 0:
             self.label: torch.FloatTensor = torch.tensor(traj_data["label"].iat[0].item() == sensor_worker_id, dtype=torch.float32)

@@ -45,6 +45,9 @@ class BaseDataset(data.Dataset[Sequence[torch.Tensor]]):
     sensor_mets: ClassVar[Sequence[SensorMet]]
 
 class BaseFitDataset(BaseDataset, abc.ABC):
+    def __len__(self) -> int:
+        return len(self.pos_idx) + len(self.neg_idx)
+
     @property
     @abc.abstractmethod
     def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:

@@ -10,7 +10,7 @@ from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, B
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
 from corvs.normalization import MaskedBatchNorm1d
-from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_softmax_pool1d
+from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_soft_pool1d
 from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
@@ -171,8 +171,8 @@ class CorVSNet(BaseModule):
                 hidden = masked_global_avg_pool1d(hidden, valid_mask)
             case "max_pool":
                 hidden = masked_global_max_pool1d(hidden, valid_mask)
-            case "softmax_pool":
-                hidden = masked_global_softmax_pool1d(hidden, valid_mask)
+            case "soft_pool":
+                hidden = masked_global_soft_pool1d(hidden, valid_mask)
             case "attn_pool":
                 hidden = self.pool(hidden, valid_mask)
             case "cls_tok":
