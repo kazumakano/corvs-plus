@@ -143,7 +143,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         if len(pos_map) == 0:
             self.pos_map = torch.empty(0, 6, dtype=torch.int32)
         else:
-            self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max_win_num))
+            self.pos_map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(pos_map, dtype=utils.get_min_int_dtype(max(len(self.traj_feat), max_win_num, self.win_len)))
 
         neg_map = []
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
@@ -193,12 +193,12 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         return len(self.pos_map) + len(self.neg_map)
 
     @property
-    def pos_len(self) -> int:
-        return len(self.pos_map)
+    def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
+        return torch.arange(len(self.pos_map), dtype=utils.get_min_int_dtype(len(self.pos_map)))
 
     @property
-    def neg_len(self) -> int:
-        return len(self.neg_map)
+    def neg_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
+        return torch.arange(len(self.pos_map), len(self), dtype=utils.get_min_int_dtype(len(self)))
 
     @classmethod
     def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
@@ -361,7 +361,8 @@ class CorVSPredDataset(CorVSDataset):
             meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
             meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
 
-            for i, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
+            i = 0
+            for _, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                 traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                 if min_valid_len / self.freq < (len(traj_time) - 2) / TRAJ_FREQ:
@@ -381,7 +382,8 @@ class CorVSPredDataset(CorVSDataset):
                         time[j] = synced_time[j * self.win_st]
                         map.append((i, j, valid_len))
                     self.time.append(time)
-        self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max_win_num))
+                    i += 1
+        self.map: torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor = torch.tensor(map, dtype=utils.get_min_int_dtype(max(len(self.time), max_win_num, self.win_len)))
 
         if len(traj_data) > 0:
             self.label: torch.FloatTensor = torch.tensor(traj_data["label"].iat[0].item() == sensor_worker_id, dtype=torch.float32)

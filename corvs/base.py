@@ -47,17 +47,17 @@ class BaseDataset(data.Dataset[Sequence[torch.Tensor]]):
 class BaseFitDataset(BaseDataset, abc.ABC):
     @property
     @abc.abstractmethod
-    def pos_len(self) -> int:
+    def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
         ...
 
     @property
     @abc.abstractmethod
-    def neg_len(self) -> int:
+    def neg_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
         ...
 
     @property
     def neg_ratio(self) -> float:
-        return self.neg_len / self.pos_len
+        return len(self.neg_idx) / len(self.pos_idx)
 
 ModeT = TypeVar("ModeT", bound=Literal["train", "val", "test", "pred"])
 DatasetT = TypeVar("DatasetT", bound=BaseDataset)
@@ -84,7 +84,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
                 batch_size=self.hparams["bsz"],
                 sampler=data.WeightedRandomSampler(
                     torch.where(
-                        torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))) < self.datasets["train"].pos_len,
+                        torch.isin(torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))), self.datasets["train"].pos_idx, assume_unique=True),
                         self.datasets["train"].neg_ratio,
                         1
                     ),
