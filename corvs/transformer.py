@@ -38,8 +38,8 @@ class TransformerEncoderLayer(nn.TransformerEncoderLayer):
             self.activation = "swiglu"
             self.activation_relu_or_gelu = 0
             self.ff = modules.FeedForward(
-                nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
-                nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
+                gate_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype),
+                down_proj=nn.Linear(dim_feedforward, d_model, bias=bias, device=device, dtype=dtype),
                 up_proj=nn.Linear(d_model, dim_feedforward, bias=bias, device=device, dtype=dtype)
             )
             del self.linear1, self.dropout, self.linear2
