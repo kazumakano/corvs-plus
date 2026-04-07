@@ -2,47 +2,33 @@ cff-version: 1.2.0
 message: Please cite the paper when using these resources in your project.
 authors:
 - family-names: Kano
-  given-names:  Kazuma
+  given-names: Kazuma
   orcid: https://orcid.org/0000-0002-7514-1655
-- family-names: Mori
-  given-names:  Yuki
-  orcid: https://orcid.org/0009-0000-2916-4824
-- family-names: Katayama
-  given-names:  Shin
-  orcid: https://orcid.org/0000-0002-5614-4412
-- family-names: Urano
-  given-names:  Kenta
-  orcid: https://orcid.org/0000-0003-2906-537X
-- family-names: Yonezawa
-  given-names:  Takuro
-  orcid: https://orcid.org/0000-0001-9781-0402
-- family-names: Kawaguchi
-  given-names:  Nobuo
-  orcid: https://orcid.org/0000-0002-0444-2290
 title: Implementation of CorVS+
 version: 1.0.0
 # date-released:
 url: https://github.com/kazumakano/corvs-plus
+
 preferred-citation:
   type: article
   authors:
   - family-names: Kano
-    given-names:  Kazuma
+    given-names: Kazuma
     orcid: https://orcid.org/0000-0002-7514-1655
   - family-names: Mori
-    given-names:  Yuki
+    given-names: Yuki
     orcid: https://orcid.org/0009-0000-2916-4824
   - family-names: Katayama
-    given-names:  Shin
+    given-names: Shin
     orcid: https://orcid.org/0000-0002-5614-4412
   - family-names: Urano
-    given-names:  Kenta
+    given-names: Kenta
     orcid: https://orcid.org/0000-0003-2906-537X
   - family-names: Yonezawa
-    given-names:  Takuro
+    given-names: Takuro
     orcid: https://orcid.org/0000-0001-9781-0402
   - family-names: Kawaguchi
-    given-names:  Nobuo
+    given-names: Nobuo
     orcid: https://orcid.org/0000-0002-0444-2290
   # doi:
   # journal:
