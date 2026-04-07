@@ -50,12 +50,12 @@ class BaseFitDataset(BaseDataset, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
+    def pos_idx(self) -> Sequence[int]:
         ...
 
     @property
     @abc.abstractmethod
-    def neg_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
+    def neg_idx(self) -> Sequence[int]:
         ...
 
     @property
@@ -83,7 +83,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
 
     def train_dataloader(self) -> data.DataLoader[Sequence[torch.Tensor]]:
         if self.hparams["balance"] == "sample":
-            is_pos = torch.isin(torch.arange(len(self.datasets["train"]), dtype=utils.get_min_int_dtype(len(self.datasets["train"]))), self.datasets["train"].pos_idx, assume_unique=True)
+            is_pos = torch.isin(torch.arange(len(self.datasets["train"]), dtype=torch.int64), torch.as_tensor(self.datasets["train"].pos_idx, dtype=torch.int64), assume_unique=True)
             sampler = data.WeightedRandomSampler(torch.where(is_pos, self.datasets["train"].neg_ratio, 1), len(self.datasets["train"]), generator=self.rng)
             return data.DataLoader(
                 self.datasets["train"],
