@@ -6,13 +6,13 @@ from typing import Any, Collection, Iterable, Literal, Optional, Self
 import numpy as np
 import pandas as pd
 import torch
-import tqdm
 from numpy import linalg, random
 from numpy.typing import ArrayLike, NDArray
 from omegaconf import DictConfig, OmegaConf
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
+from tqdm import rich as tqdm
 from corvs import preprocess as preproc
 from corvs import utils
 from corvs.base import BaseDataset, BaseFitDataModule, BaseFitDataset, BasePredDataModule, Modality, SensorMet, TrajMet
@@ -240,7 +240,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         elif split_ratio is not None:
             traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, end=self.end)
             traj_data = traj_data[traj_data["label"] < 1000]
-            label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, self.rng.initial_seed())
+            label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, self.seed)
             self.track_ids = {
                 "train": traj_data[traj_data["label"].isin(label_ids[0])]["track"].unique(),
                 "val": traj_data[traj_data["label"].isin(label_ids[1])]["track"].unique(),
@@ -274,7 +274,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 self.start,
                 self.end,
                 None if self.pts_path is None else self.pts_path / "train_data.pt",
-                self.rng.initial_seed()
+                self.seed
             )
         if self.pts_path is None or not (self.pts_path / "val_data.pt").exists():
             self.datasets["val"] = CorVSFitDataset(
@@ -287,7 +287,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 start=self.start,
                 end=self.end,
                 pt_path=None if self.pts_path is None else self.pts_path / "val_data.pt",
-                seed=self.rng.initial_seed()
+                seed=self.seed
             )
         if self.pts_path is None or not (self.pts_path / "test_data.pt").exists():
             self.datasets["test"] = CorVSFitDataset(
@@ -300,7 +300,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 start=self.start,
                 end=self.end,
                 pt_path=None if self.pts_path is None else self.pts_path / "test_data.pt",
-                seed=self.rng.initial_seed()
+                seed=self.seed
             )
 
     def setup(self, stage: Literal["fit", "val", "test"]) -> None:

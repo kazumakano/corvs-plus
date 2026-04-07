@@ -127,6 +127,10 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
             pin_memory=True
         )
 
+    @property
+    def seed(self) -> int:
+        return self.rng.initial_seed()
+
 class BasePredDataModule(BaseDataModule[Literal["pred"], DatasetT]):
     def predict_dataloader(self) -> data.DataLoader[Sequence[torch.Tensor]]:
         return data.DataLoader(

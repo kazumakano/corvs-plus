@@ -155,12 +155,7 @@ class CorVSNet(BaseModule):
 
         valid_mask = valid_mask[:, -hidden.shape[0]:]
         if visible_mask is not None:
-            if not self._mask_is_contig(~visible_mask):
-                raise ValueError("invisible region must be contiguous")
-            time_idx = torch.arange(visible_mask.shape[1], dtype=torch.int32, device=visible_mask.device)  # (time, )
-            invisible_min_idx = torch.where(visible_mask, torch.inf, time_idx).min(dim=1).values           # (batch, )
-            invisible_max_idx = torch.where(visible_mask, -torch.inf, time_idx).max(dim=1).values          # (batch, )
-            visible_mask = (time_idx[:hidden.shape[0]].unsqueeze(0) < invisible_min_idx.unsqueeze(1) - 0.5) | (invisible_max_idx.unsqueeze(1) + 0.5 < time_idx[-hidden.shape[0]:].unsqueeze(0))  # (batch, time)
+            visible_mask = ~self.mask_contract(~visible_mask, len(hidden))
             valid_mask = valid_mask & visible_mask
 
         hidden = self.xfmr(hidden, src_key_padding_mask=~valid_mask)
@@ -185,10 +180,18 @@ class CorVSNet(BaseModule):
         return output
 
     @staticmethod
-    def _mask_is_contig(mask: torch.BoolTensor) -> bool:
+    def mask_contract(mask: torch.BoolTensor, tgt_len: int) -> torch.BoolTensor:    # (batch, time) -> (batch, time)
         diff = mask.diff(prepend=torch.zeros(mask.shape[0], 1, dtype=torch.bool, device=mask.device))
         diff_cnt = diff.count_nonzero(dim=1)
-        return (diff_cnt < 3).all().item()
+        if not (diff_cnt < 3).all().item():
+            raise ValueError("non-contiguous masks cannnot be contracted")
+
+        time_idx = torch.arange(mask.shape[1], dtype=torch.int32, device=mask.device)  # (time, )
+        min_idx = torch.where(mask, time_idx, torch.inf).min(dim=1).values             # (batch, )
+        max_idx = torch.where(mask, time_idx, -torch.inf).max(dim=1).values            # (batch, )
+        mask = (min_idx.unsqueeze(1) - 0.5 < time_idx[:tgt_len].unsqueeze(0)) & (time_idx[-tgt_len:].unsqueeze(0) < max_idx.unsqueeze(1) + 0.5)
+
+        return mask
 
 class CorVSNetFitter(CorVSNet, BaseFitModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseFitDataset]) -> None:
