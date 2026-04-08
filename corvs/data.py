@@ -151,7 +151,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         for i_1, j_1, vl_1 in tqdm.tqdm(self.pos_map[::pos_factor, :3], desc="building negative pairs"):
             cnt = 0
             for i_2, j_2, vl_2 in rng.permutation(self.pos_map[::pos_factor, :3]):
-                if i_1 != i_2 or min(vl_1, vl_2) / self.win_st < abs(j_1 - j_2):
+                if i_1 != i_2 or min(vl_1, vl_2) < abs(j_1 - j_2) * self.win_st:
                     neg_map.append((i_1, j_1, i_2, j_2, min(vl_1, vl_2)))
                     cnt += 1
                     if cnt >= neg_ratio:

@@ -91,7 +91,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             F._verify_batch_size(input.size())
 
         if eps <= 0:
-            raise ValueError(f"batch_norm eps must be positive, but got {eps}")
+            raise ValueError(f"eps must be positive, but got {eps}")
 
         if training:
             cnt = valid_mask.count_nonzero()

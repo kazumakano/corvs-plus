@@ -25,7 +25,7 @@ def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = 
         case "silu":
             return F.silu if func else nn.SiLU(**kwargs)
         case _:
-            raise ValueError("only ReLU, LeakyReLU, GELU, and SiLU are supported")
+            raise ValueError(f"unknown activation function {act} was specified")
 
 class CorVSNet(BaseModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
@@ -91,7 +91,7 @@ class CorVSNet(BaseModule):
             case "rms":
                 xfmr_norm = nn.RMSNorm(self.hparams["xfmr_d_model"])
             case _:
-                raise ValueError("only layer and RMS normalization is supported for Transformer encoder")
+                raise ValueError(f"norm {self.hparams['xfmr_norm']} is not supported for Transformer encoder")
 
         self.xfmr = nn.TransformerEncoder(xfmr_layer, self.hparams["xfmr_n_layers"], norm=xfmr_norm, enable_nested_tensor=False)
 

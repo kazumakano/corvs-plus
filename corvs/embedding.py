@@ -32,7 +32,7 @@ def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Devi
     """
 
     if dim % 2 != 0:
-        raise ValueError("dimension must be even")
+        raise ValueError(f"dimension must be even, but got {dim}")
 
     freq = (-math.log(base) * torch.arange(0, dim, step=2, dtype=torch.float64, device=device) / dim).exp()  # (dim / 2, )
     pos = torch.arange(seq_len, dtype=torch.float64, device=device).unsqueeze(1)  # (seq_len, 1)

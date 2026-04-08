@@ -42,7 +42,7 @@ class BestMetricsWriter(L.Callback):
             case "max":
                 self.best_mets[self.monitor] = -math.inf
             case _:
-                raise ValueError("mode must be 'min' or 'max'")
+                raise ValueError(f"mode must be 'min' or 'max', but got {self.mode}")
 
     def on_validation_epoch_end(self, trainer: L.Trainer, _: L.LightningModule) -> None:
         mets = {n: v.item() for n, v in trainer.callback_metrics.items()}
