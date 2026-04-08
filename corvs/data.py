@@ -310,7 +310,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
 
         Parameters
         ----------
-        stage : "fit" | "val" | "test"
+        stage : 'fit' | 'val' | 'test'
             Stage to setup.
         """
 
