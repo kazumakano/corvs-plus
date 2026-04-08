@@ -155,7 +155,7 @@ class CorVSNet(BaseModule):
 
         valid_mask = valid_mask[:, -hidden.shape[0]:]
         if visible_mask is not None:
-            visible_mask = ~self.mask_contract(~visible_mask, len(hidden))
+            visible_mask = ~self.mask_contract(~visible_mask, hidden.shape[0])
             valid_mask = valid_mask & visible_mask
 
         hidden = self.xfmr(hidden, src_key_padding_mask=~valid_mask)
