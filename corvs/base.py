@@ -46,21 +46,17 @@ class BaseDataset(data.Dataset[Sequence[torch.Tensor]]):
 
 class BaseFitDataset(BaseDataset, abc.ABC):
     def __len__(self) -> int:
-        return len(self.pos_idx) + len(self.neg_idx)
+        return len(self.label)
 
     @property
     @abc.abstractmethod
-    def pos_idx(self) -> Sequence[int]:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def neg_idx(self) -> Sequence[int]:
+    def label(self) -> torch.FloatTensor:
         ...
 
     @property
     def neg_ratio(self) -> float:
-        return len(self.neg_idx) / len(self.pos_idx)
+        pos_cnt = self.label.count_nonzero().item()
+        return (len(self) - pos_cnt) / pos_cnt
 
 ModeT = TypeVar("ModeT", bound=Literal["train", "val", "test", "pred"])
 DatasetT = TypeVar("DatasetT", bound=BaseDataset)
@@ -86,8 +82,7 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
             if len(self.datasets["train"]) > 2 ** 24:
                 raise RuntimeError("weighted sampler is not supported for datasets with lengths over 2^24")
 
-            is_pos = torch.isin(torch.arange(len(self.datasets["train"]), dtype=torch.int64), torch.as_tensor(self.datasets["train"].pos_idx, dtype=torch.int64), assume_unique=True)
-            sampler = data.WeightedRandomSampler(torch.where(is_pos, self.datasets["train"].neg_ratio, 1), len(self.datasets["train"]), generator=self.rng)
+            sampler = data.WeightedRandomSampler(torch.where(self.datasets["train"].label.bool(), self.datasets["train"].neg_ratio, 1), len(self.datasets["train"]), generator=self.rng)
 
             return data.DataLoader(
                 self.datasets["train"],

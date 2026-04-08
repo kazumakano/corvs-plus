@@ -194,12 +194,8 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             )
 
     @property
-    def pos_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
-        return torch.arange(len(self.pos_map), dtype=utils.get_min_int_dtype(len(self.pos_map)))
-
-    @property
-    def neg_idx(self) -> torch.CharTensor | torch.ShortTensor | torch.IntTensor | torch.LongTensor:
-        return torch.arange(len(self.pos_map), len(self.pos_map) + len(self.neg_map), dtype=utils.get_min_int_dtype(len(self.pos_map) + len(self.neg_map)))
+    def label(self) -> torch.FloatTensor:
+        return torch.cat((torch.ones(len(self.pos_map), dtype=torch.float32), torch.zeros(len(self.neg_map), dtype=torch.float32)))
 
     @classmethod
     def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
