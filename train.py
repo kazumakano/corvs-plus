@@ -42,7 +42,7 @@ def train(
         max_steps=hparams["max_step"],
         val_check_interval=hparams["val_step"],
         check_val_every_n_epoch=None,
-        gradient_clip_val=hparams["clip_grad"]
+        gradient_clip_val=hparams["grad_clip"]
     )
 
     datamodule = CorVSFitDataModule(data_path, hparams, (split["train"], split["val"], split["test"]), start=start, end=end, pts_path=trainer.log_dir, seed=seed)

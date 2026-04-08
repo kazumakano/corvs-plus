@@ -34,7 +34,7 @@ opt: adamw
 sched: warm_cos
 lr: 0.0001
 bsz: 128
-clip_grad: null
+grad_clip: null
 balance: loss
 max_step: 100000
 val_step: 1000
