@@ -162,7 +162,7 @@ class BaseModule(L.LightningModule):
             hparams_file=hparams_file,
             strict=False,
             weights_only=False,
-            ds_cls=(ds_cls.__module__, ds_cls.__qualname__),  # only primitive types are allowed for extra keyword arguments
+            ds_cls=(ds_cls.__module__, ds_cls.__qualname__),  # only serializable types are allowed for extra keyword arguments
             **kwargs
         )
 

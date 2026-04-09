@@ -22,7 +22,7 @@ class ArgsWriter(L.Callback):
         elif len(args) == 0:
             self.args = kwargs
         else:
-            raise ValueError("arguments must be passed as one dictionary or keyword arguments")
+            raise TypeError("arguments must be passed as one dictionary or keyword arguments")
 
     def setup(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
         log_path = Path(trainer.log_dir)

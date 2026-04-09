@@ -1,5 +1,6 @@
+import warnings
 from argparse import Namespace
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, overload
 import einops
 import torch
 from omegaconf import DictConfig
@@ -14,7 +15,22 @@ from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, mask
 from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
+@overload
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[False], **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
+    ...
+
+@overload
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[True]) -> Callable[[torch.Tensor], torch.Tensor]:
+    ...
+
+@overload
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
+    ...
+
 def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.Tensor], torch.Tensor]:
+    if func and len(kwargs) > 0:
+        warnings.warn(UserWarning("keyword arguments are ignored when functional"), stacklevel=2)
+
     match act:
         case "relu":
             return F.relu if func else nn.ReLU(**kwargs)
@@ -35,10 +51,11 @@ class CorVSNet(BaseModule):
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
+        cnn_act = str_to_mod(self.hparams["cnn_act"], True)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], str_to_mod(self.hparams["cnn_act"], True))
+            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], cnn_act)
         else:
-            self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], str_to_mod(self.hparams["cnn_act"], True))
+            self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], cnn_act)
 
         if self.hparams["min_in_len"] < self.cnn.recept_field:
             raise ValueError("input cannot be shorter than receptive field of CNN backbone")
@@ -91,7 +108,7 @@ class CorVSNet(BaseModule):
             case "rms":
                 xfmr_norm = nn.RMSNorm(self.hparams["xfmr_d_model"])
             case _:
-                raise ValueError(f"norm {self.hparams['xfmr_norm']} is not supported for Transformer encoder")
+                raise ValueError(f"unknown normalization {self.hparams['xfmr_norm']} was specified")
 
         self.xfmr = nn.TransformerEncoder(xfmr_layer, self.hparams["xfmr_n_layers"], norm=xfmr_norm, enable_nested_tensor=False)
 

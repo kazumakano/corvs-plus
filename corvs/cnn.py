@@ -8,7 +8,7 @@ from corvs.normalization import MaskedBatchNorm1d
 
 
 class DualCNN(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, act: nn.Module | Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         if out_ch % 2 != 0:
             raise ValueError(f"number of out channels must be even, but got {out_ch}")
 
@@ -118,7 +118,7 @@ class SeparableConv1d(nn.Module):
         return self.d.dilation
 
 class SeparableDualCNN(DualCNN):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: nn.Module | Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         super().__init__(in_ch, out_ch, ks_s, act)
 
         half_out_ch = out_ch // 2
