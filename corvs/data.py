@@ -217,7 +217,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         ) -> None:
 
         if split_track_ids is not None and split_ratio is not None:
-            raise ValueError("either split track IDs or ratio can be passed")
+            raise TypeError("either split track IDs or ratio can be passed")
 
         super().__init__(hparams, seed)
 
