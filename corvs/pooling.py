@@ -12,15 +12,15 @@ def masked_global_avg_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
     ----------
     input : FloatTensor
         Input.
-        Shape is (*, ch, time).
+        Shape is (..., ch, time).
     valid_mask : BoolTensor | FloatTensor | IntTensor
         Mask of valid times.
         True for valid and False for invalid.
-        Shape is (*, time).
+        Shape is (..., time).
 
     output : FloatTensor
         Averaged output.
-        Shape is (*, ch).
+        Shape is (..., ch).
     """
 
     return (valid_mask.unsqueeze(-2) * input).sum(dim=-1) / valid_mask.sum(dim=-1, keepdim=True)
@@ -33,15 +33,15 @@ def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
     ----------
     input : FloatTensor
         Input.
-        Shape is (*, ch, time).
+        Shape is (..., ch, time).
     valid_mask : BoolTensor
         Mask of valid times.
         True for valid and False for invalid.
-        Shape is (*, time).
+        Shape is (..., time).
 
     output : FloatTensor
         Maximum output.
-        Shape is (*, ch).
+        Shape is (..., ch).
     """
 
     return input.masked_fill(~valid_mask.unsqueeze(-2), -torch.inf).max(dim=-1).values
@@ -54,11 +54,11 @@ def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTe
     ----------
     input : FloatTensor
         Input.
-        Shape is (*, ch, time).
+        Shape is (..., ch, time).
     valid_mask : BoolTensor
         Mask of valid times.
         True for valid and False for invalid.
-        Shape is (*, time).
+        Shape is (..., time).
     temp : float | Parameter
         Temperature parameter.
         Standard if 1.
@@ -67,7 +67,7 @@ def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTe
     -------
     output : FloatTensor
         Soft maximum output.
-        Shape is (*, ch).
+        Shape is (..., ch).
     """
 
     return (F.softmax((input / temp).masked_fill(~valid_mask.unsqueeze(-2), -torch.inf), dim=-1) * input).sum(dim=-1)
@@ -82,7 +82,7 @@ class MaskedGlobalAttnPool1d(nn.Module):
         self.nhead = nhead
         self.proj = nn.Linear(d_model, self.nhead)
 
-    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:  # (*, dim, seq), (*, seq) -> (*, dim)
+    def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:  # (..., dim, seq), (..., seq) -> (..., dim)
         score: torch.FloatTensor
         score  = self.proj(input.transpose(-2, -1))
         weight = F.softmax(score.masked_fill(~valid_mask.unsqueeze(-1), -torch.inf), dim=-2)

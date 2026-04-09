@@ -96,7 +96,7 @@ class SeparableConv1d(nn.Module):
             dtype=dtype
         )
 
-    def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:  # (*, ch, time) -> (*, ch, time)
+    def forward(self, input: torch.FloatTensor) -> torch.FloatTensor:  # (..., ch, time) -> (..., ch, time)
         hidden = self.d(input)
         output = self.p(hidden)
         return output
