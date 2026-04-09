@@ -20,14 +20,14 @@ def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal
     ...
 
 @overload
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[True]) -> Callable[[torch.Tensor], torch.Tensor]:
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[True]) -> Callable[[torch.FloatTensor], torch.FloatTensor]:
     ...
 
 @overload
 def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
     ...
 
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.Tensor], torch.Tensor]:
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.FloatTensor], torch.FloatTensor]:
     if func and len(kwargs) > 0:
         warnings.warn(UserWarning("keyword arguments are ignored when functional"), stacklevel=2)
 
