@@ -96,13 +96,13 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
         self.win_len, self.win_st = win_len, win_st
 
         root_path = Path(path)
-        all_traj_data = load_traj_data(root_path / "trajectory", track_ids, start=start, end=end)
+        all_traj_data = load_traj_data(root_path / "trajectory/", track_ids, start=start, end=end)
 
         self.traj_feat: list[torch.FloatTensor] = []
         self.sensor_feat: list[torch.FloatTensor] = []
         for ti in tqdm.tqdm(track_ids, desc="loading and preprocessing data"):
             traj_data = all_traj_data[all_traj_data["track"] == ti]
-            sensor_data = load_sensor_data(root_path / "sensor", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
+            sensor_data = load_sensor_data(root_path / "sensor/", traj_data["label"].iat[0], traj_data["time"].iat[0] - 1 / SENSOR_FREQ, traj_data["time"].iat[-1] + 1 / SENSOR_FREQ)
 
             if min_valid_len / freq_in_hz < (len(sensor_data) - 1) / SENSOR_FREQ:
                 meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
@@ -234,7 +234,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 "test": np.asanyarray(split_track_ids[2], dtype=np.uint32)
             }
         elif split_ratio is not None:
-            traj_data = load_traj_data(self.root_path / "trajectory", start=self.start, end=self.end)
+            traj_data = load_traj_data(self.root_path / "trajectory/", start=self.start, end=self.end)
             traj_data = traj_data[traj_data["label"] < 1000]
             label_ids = preproc.rand_split(traj_data["label"].unique(), split_ratio, self.seed)
             self.track_ids = {
@@ -346,8 +346,8 @@ class CorVSPredDataset(CorVSDataset):
         self.win_len, self.win_st = win_len, win_st
 
         root_path = Path(path)
-        traj_data = load_traj_data(root_path / "trajectory", (traj_track_id, ), start=start, end=end)
-        sensor_data = load_sensor_data(root_path / "sensor", sensor_worker_id, start, end)
+        traj_data = load_traj_data(root_path / "trajectory/", (traj_track_id, ), start=start, end=end)
+        sensor_data = load_sensor_data(root_path / "sensor/", sensor_worker_id, start, end)
 
         self.time: list[torch.DoubleTensor] = []
         self.traj_feat: list[torch.FloatTensor] = []
