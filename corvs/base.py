@@ -1,5 +1,6 @@
 import abc
 import enum
+import warnings
 from argparse import Namespace
 from os import PathLike
 from typing import Any, ClassVar, Generic, Literal, Optional, Self, Sequence, TypeVar
@@ -186,6 +187,9 @@ class BaseFitModule(BaseModule):
             self.val_crit = nn.BCEWithLogitsLoss()
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
+        if self.hparams["sched"] != "warm_cos" and self.hparams["warm_step"] is not None:
+            warnings.warn(UserWarning("parameter 'warm_step' is ignored when not using warm up scheduler"))
+
         match self.hparams["opt"]:
             case "sgd":
                 if self.hparams["sched"] == "free":
