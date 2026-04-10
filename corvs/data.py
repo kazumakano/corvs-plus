@@ -272,6 +272,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 None if self.pts_path is None else self.pts_path / "train_data.pt",
                 self.seed
             )
+
         if self.pts_path is None or not (self.pts_path / "val_data.pt").exists():
             self.datasets["val"] = CorVSFitDataset(
                 self.root_path,
@@ -285,6 +286,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 pt_path=None if self.pts_path is None else self.pts_path / "val_data.pt",
                 seed=self.seed
             )
+
         if self.pts_path is None or not (self.pts_path / "test_data.pt").exists():
             self.datasets["test"] = CorVSFitDataset(
                 self.root_path,
