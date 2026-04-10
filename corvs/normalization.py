@@ -94,12 +94,12 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             raise ValueError(f"eps must be positive, but got {eps}")
 
         if training:
-            cnt = valid_mask.count_nonzero()
-            mean = (valid_mask.unsqueeze(1) * input).sum(dim=(0, 2)) / cnt  # (ch, )
-            var = (valid_mask.unsqueeze(1) * (input - mean.unsqueeze(0).unsqueeze(2)) ** 2).sum(dim=(0, 2)) / cnt  # (ch, )
+            valid_cnt = valid_mask.count_nonzero()
+            mean = (valid_mask.unsqueeze(1) * input).sum(dim=(0, 2)) / valid_cnt  # (ch, )
+            var = (valid_mask.unsqueeze(1) * (input - mean.unsqueeze(0).unsqueeze(2)) ** 2).sum(dim=(0, 2)) / valid_cnt  # (ch, )
             if running_mean is not None and running_var is not None:
                 running_mean.copy_((1 - momentum) * running_mean + momentum * mean)
-                running_var.copy_((1 - momentum) * running_var + momentum * cnt / (cnt - 1) * var)
+                running_var.copy_((1 - momentum) * running_var + momentum * valid_cnt / (valid_cnt - 1) * var)
         else:
             mean = running_mean
             var = running_var

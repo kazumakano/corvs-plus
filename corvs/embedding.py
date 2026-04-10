@@ -21,7 +21,7 @@ def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Devi
     base : float
         Base frequency.
         Maximum period is `2π * base`.
-    device : int | str | device | None
+    device : device | int | str | None
         Computation device.
 
     Returns

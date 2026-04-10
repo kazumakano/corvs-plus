@@ -257,11 +257,11 @@ class CorVSNetPredictor(CorVSNet, BasePredModule):
         return prob, rel
 
     def rel_estim(self, spd: torch.FloatTensor, linacc: torch.FloatTensor, valid_mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor, eps: float = 1e-5) -> torch.FloatTensor:  # (batch, time), (batch, time), (batch, time) -> (batch, 1)
-        cnt = valid_mask.count_nonzero(dim=1)
-        spd_mean = (valid_mask * spd).sum(dim=1) / cnt
-        spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
-        linacc_mean = (valid_mask * linacc).sum(dim=1) / cnt
-        linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / cnt
+        valid_cnt = valid_mask.count_nonzero(dim=1)
+        spd_mean = (valid_mask * spd).sum(dim=1) / valid_cnt
+        spd_var = (valid_mask * (spd - spd_mean.unsqueeze(1)) ** 2).sum(dim=1) / valid_cnt
+        linacc_mean = (valid_mask * linacc).sum(dim=1) / valid_cnt
+        linacc_var = (valid_mask * (linacc - linacc_mean.unsqueeze(1)) ** 2).sum(dim=1) / valid_cnt
 
         spd_run_var = self.bn.running_var[self.in_mets.index(TrajMet.SPD)]
         linacc_run_var = self.bn.running_var[self.in_mets.index(SensorMet.LINACC_NORM)]
