@@ -325,6 +325,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def save_split(self) -> None:
         log_path = Path(self.trainer.log_dir)
         if self.trainer.is_global_zero and self.track_ids is not None:
+            log_path.mkdir(parents=True, exist_ok=True)
             OmegaConf.save({m: ti.tolist() for m, ti in self.track_ids.items()}, log_path / "split.yaml")
 
 class CorVSPredDataset(CorVSDataset):
