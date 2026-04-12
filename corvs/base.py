@@ -83,7 +83,8 @@ class BaseFitDataModule(BaseDataModule[Literal["train", "val", "test"], FitDatas
             if len(self.datasets["train"]) > 2 ** 24:
                 raise RuntimeError("weighted sampler is not supported for datasets with lengths over 2^24")
 
-            sampler = data.WeightedRandomSampler(torch.where(self.datasets["train"].label.bool(), self.datasets["train"].neg_ratio, 1), len(self.datasets["train"]), generator=self.rng)
+            weight = torch.where(self.datasets["train"].label.squeeze(1).bool(), self.datasets["train"].neg_ratio, 1)
+            sampler = data.WeightedRandomSampler(weight, len(self.datasets["train"]), generator=self.rng)
 
             return data.DataLoader(
                 self.datasets["train"],

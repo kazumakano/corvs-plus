@@ -195,7 +195,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
     @property
     def label(self) -> torch.FloatTensor:
-        return torch.cat((torch.ones(len(self.pos_map), dtype=torch.float32), torch.zeros(len(self.neg_map), dtype=torch.float32)))
+        return torch.cat((torch.ones(len(self.pos_map), 1, dtype=torch.float32), torch.zeros(len(self.neg_map), 1, dtype=torch.float32)))
 
     @classmethod
     def from_pt(cls, path: FileLike, mmap: bool = True) -> Self:
@@ -391,7 +391,7 @@ class CorVSPredDataset(CorVSDataset):
             self.map = torch.tensor(map, dtype=utils.get_min_int_dtype(max(len(self.time), max_win_num, self.win_len)))
 
         if len(traj_data) > 0:
-            self.label: torch.FloatTensor = torch.tensor(traj_data["label"].iat[0].item() == sensor_worker_id, dtype=torch.float32)
+            self.label: torch.FloatTensor = torch.tensor((traj_data["label"].iat[0].item() == sensor_worker_id, ), dtype=torch.float32)
 
     def __getitem__(self, idx: int) -> tuple[torch.DoubleTensor, torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.FloatTensor]:
         return (
@@ -399,7 +399,7 @@ class CorVSPredDataset(CorVSDataset):
             preproc.pad(self.traj_feat[self.map[idx][0]][self.map[idx][1] * self.win_st:self.map[idx][1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(1),
             preproc.pad(self.sensor_feat[self.map[idx][0]][self.map[idx][1] * self.win_st:self.map[idx][1] * self.win_st + self.win_len].unsqueeze(0), self.win_len).squeeze(1),
             torch.arange(self.win_len, dtype=torch.int32) < self.map[idx][2],
-            self.label.unsqueeze(0)
+            self.label
         )
 
     def __len__(self) -> int:
