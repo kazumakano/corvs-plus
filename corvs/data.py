@@ -226,7 +226,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
         self.end = None if end is None else utils.to_unix(end, utils.JST)
         self.pts_path = None if pts_path is None else Path(pts_path)
 
-        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] | None
+        self.track_ids: dict[Literal["train", "val", "test"], NDArray[np.uint32]] | None = None
         if split_track_ids is not None:
             self.track_ids = {
                 "train": np.asanyarray(split_track_ids[0], dtype=np.uint32),
@@ -242,8 +242,6 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 "val": traj_data[traj_data["label"].isin(label_ids[1])]["track"].unique(),
                 "test": traj_data[traj_data["label"].isin(label_ids[2])]["track"].unique()
             }
-        else:
-            self.track_ids = None
 
     def prepare_data(self) -> None:
         """
