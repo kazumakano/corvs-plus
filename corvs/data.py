@@ -76,7 +76,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
     def __init__(
             self,
-            path: str | PathLike[str],
+            root_path: str | PathLike[str],
             track_ids: Collection[int],
             freq_in_hz: float,
             smooth_in_sec: float,
@@ -95,7 +95,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
         self.win_len, self.win_st = win_len, win_st
 
-        root_path = Path(path)
+        root_path = Path(root_path)
         all_traj_data = load_traj_data(root_path / "trajectory/", track_ids, start=start, end=end)
 
         self.traj_feat: list[torch.FloatTensor] = []
@@ -206,7 +206,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
     def __init__(
             self,
-            path: str | PathLike[str],
+            root_path: str | PathLike[str],
             hparams: dict[str, Any] | Namespace | DictConfig,
             split_track_ids: Optional[tuple[ArrayLike, ArrayLike, ArrayLike]] = None,
             split_ratio: Optional[tuple[float, float, float]] = None,
@@ -221,7 +221,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
 
         super().__init__(hparams, seed)
 
-        self.root_path = Path(path)
+        self.root_path = Path(root_path)
         self.start = None if start is None else utils.to_unix(start, utils.JST)
         self.end = None if end is None else utils.to_unix(end, utils.JST)
         self.pts_path = None if pts_path is None else Path(pts_path)
@@ -333,7 +333,7 @@ class CorVSPredDataset(CorVSDataset):
 
     def __init__(
             self,
-            path: str | PathLike[str],
+            root_path: str | PathLike[str],
             traj_track_id: int,
             sensor_worker_id: int,
             freq_in_hz: float,
@@ -348,7 +348,7 @@ class CorVSPredDataset(CorVSDataset):
         self.freq = freq_in_hz
         self.win_len, self.win_st = win_len, win_st
 
-        root_path = Path(path)
+        root_path = Path(root_path)
         traj_data = load_traj_data(root_path / "trajectory/", (traj_track_id, ), start=start, end=end)
         sensor_data = load_sensor_data(root_path / "sensor/", sensor_worker_id, start, end)
 
@@ -415,7 +415,7 @@ class CorVSPredDataset(CorVSDataset):
 class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
     def __init__(
             self,
-            path: str | PathLike[str],
+            root_path: str | PathLike[str],
             traj_track_id: int,
             sensor_worker_id: int,
             hparams: dict[str, Any] | Namespace | DictConfig,
@@ -425,7 +425,7 @@ class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
 
         super().__init__(hparams)
 
-        self.root_path = Path(path)
+        self.root_path = Path(root_path)
         self.track_id, self.worker_id = traj_track_id, sensor_worker_id
         self.start = None if start is None else utils.to_unix(start, utils.JST)
         self.end = None if end is None else utils.to_unix(end, utils.JST)
