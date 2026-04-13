@@ -8,16 +8,16 @@ from torch.types import Device
 from torchtune import modules
 
 
-def create_sin_pos_emb(dim: int, seq_len: int, base: float = 10000, device: Device = None) -> torch.FloatTensor:
+def create_sin_pos_emb(seq_len: int, dim: int, base: float = 10000, device: Device = None) -> torch.FloatTensor:
     """
     Create a sinusoidal position embedding.
 
     Parameters
     ----------
-    dim : int
-        Dimension.
     seq_len : int
         Sequence length.
+    dim : int
+        Dimension.
     base : float
         Base frequency.
         Maximum period is `2π * base`.

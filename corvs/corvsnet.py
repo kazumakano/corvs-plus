@@ -63,7 +63,7 @@ class CorVSNet(BaseModule):
 
         match self.hparams["xfmr_pos_enc"]:
             case "sinusoidal":
-                self.register_buffer("pos_emb", create_sin_pos_emb(self.hparams["xfmr_d_model"], xfmr_time_len).unsqueeze(1), persistent=False)
+                self.register_buffer("pos_emb", create_sin_pos_emb(xfmr_time_len, self.hparams["xfmr_d_model"]).unsqueeze(1), persistent=False)
                 xfmr_layer = TransformerEncoderLayer(
                     self.hparams["xfmr_d_model"],
                     self.hparams["xfmr_nhead"],
