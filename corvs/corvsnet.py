@@ -16,15 +16,11 @@ from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
 
 @overload
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[False], **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
+def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[False] = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
     ...
 
 @overload
 def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[True]) -> Callable[[torch.FloatTensor], torch.FloatTensor]:
-    ...
-
-@overload
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
     ...
 
 def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.FloatTensor], torch.FloatTensor]:

@@ -13,7 +13,7 @@ class ArgsWriter(L.Callback):
         ...
 
     @overload
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **args: Any) -> None:
         ...
 
     def __init__(self, *args: dict[str, Any] | DictConfig, **kwargs: Any) -> None:
