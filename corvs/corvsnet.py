@@ -118,31 +118,6 @@ class CorVSNet(BaseModule):
             nn.Linear(self.hparams["xfmr_d_model"] // 4, 1)
         )
 
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        for m in self.modules():
-            if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm, nn.RMSNorm)):
-                m.reset_parameters()
-
-            elif isinstance(m, nn.Conv1d):
-                init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    init.zeros_(m.bias)
-
-            elif isinstance(m, nn.MultiheadAttention):
-                m._reset_parameters()
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.zeros_(m.bias)
-
-        if self.hparams["cls_tok"]:
-            init.xavier_uniform_(self.cls_tok)
-        if self.hparams["xfmr_pos_enc"] == "learnable":
-            init.xavier_uniform_(self.pos_emb)
-
     def forward(
             self,
             traj_input:   torch.FloatTensor,                  # (batch, time, ch)
@@ -209,6 +184,7 @@ class CorVSNet(BaseModule):
 class CorVSNetFitter(CorVSNet, BaseFitModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseFitDataset]) -> None:
         super().__init__(hparams, ds_cls)
+        self.reset_parameters()
 
         self.example_input_array = (
             torch.empty(1, self.hparams["win_len"], len(self.traj_mets), dtype=torch.float32),
@@ -216,6 +192,29 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
             torch.ones(1, self.hparams["win_len"], dtype=torch.bool),
             torch.ones(1, self.hparams["win_len"], dtype=torch.bool)
         )
+
+    def reset_parameters(self) -> None:
+        for m in self.modules():
+            if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm, nn.RMSNorm)):
+                m.reset_parameters()
+
+            elif isinstance(m, nn.Conv1d):
+                init.kaiming_normal_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
+
+            elif isinstance(m, nn.MultiheadAttention):
+                m._reset_parameters()
+
+            elif isinstance(m, nn.Linear):
+                init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
+
+        if self.hparams["cls_tok"]:
+            init.xavier_uniform_(self.cls_tok)
+        if self.hparams["xfmr_pos_enc"] == "learnable":
+            init.xavier_uniform_(self.pos_emb)
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
