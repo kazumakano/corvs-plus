@@ -41,7 +41,7 @@ def infer(
     datamodule = CorVSPredDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, end)
     match Path(weight_path).suffix:
         case ".ckpt":
-            model = CorVSNetPredictor.load_from_checkpoint(weight_path, CorVSPredDataset, hparams_file=param_path)
+            model = CorVSNetPredictor.load_from_checkpoint(weight_path, CorVSPredDataset, torch.device(trainer.device_ids[0]), param_path)
         case ".safetensors":
             model = CorVSNetPredictor.load_from_safetensors(weight_path, hparams, CorVSPredDataset)
         case _:
