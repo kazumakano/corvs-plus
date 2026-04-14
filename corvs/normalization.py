@@ -67,7 +67,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
     def _check_mask(self, mask: torch.BoolTensor | torch.FloatTensor | torch.IntTensor) -> None:
         if mask.dim() != 2:
             raise ValueError(f"expected 2D mask (got {mask.dim()}D mask)")
-        if mask.count_nonzero() == 0:
+        if not mask.any():
             raise ValueError("expected non-zero mask")
 
     @staticmethod
