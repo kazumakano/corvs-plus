@@ -1,6 +1,4 @@
-<div align="center">
-  <h1>CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses</h1>
-</div>
+<h1 align="center">CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses</h1>
 
 <p align="center">
   Kazuma Kano · Yuki Mori · Shin Katayama · Kenta Urano · Takuro Yonezawa · Nobuo Kawaguchi <br>
