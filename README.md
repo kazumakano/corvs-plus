@@ -1,4 +1,5 @@
 # CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses
+![identification process](https://github.com/user-attachments/assets/a8250375-e635-4bf3-a5eb-a5c666a005c7)
 
 ## News
 
@@ -16,16 +17,16 @@ pip install -e ./
 ## Dataset
 Coming soon.
 
-![output](https://github.com/user-attachments/assets/6784a7a2-41c1-4475-b133-9b5a913e6431)
+![labeled trajectories](https://github.com/user-attachments/assets/6784a7a2-41c1-4475-b133-9b5a913e6431)
 
 ## Pre-trained models
 Coming soon.
 
 | Ver | # of Params | FLOPs @ W=600 | Test PF | Weights | Hyperparams             | Note                |
 | --- | ----------- | ------------- | ------- | ------- | ----------------------- | ------------------- |
-| 1   | 106k        | 378M          | 0.761   |         | [hparams.yaml][param_1] | Best model in paper |
+| 1   | 106k        | 378M          | 0.761   |         | [hparams.yaml][param 1] | Best model in paper |
 
-[param_1]: https://onedrive.live.com/personal/5ba997f23749e33e/_layouts/15/download.aspx?UniqueId=814f01d0%2Df0c0%2D4be6%2D8155%2De2a5cfb9473b
+[param 1]: https://onedrive.live.com/personal/5ba997f23749e33e/_layouts/15/download.aspx?UniqueId=814f01d0%2Df0c0%2D4be6%2D8155%2De2a5cfb9473b
 
 ## Demo
 Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
