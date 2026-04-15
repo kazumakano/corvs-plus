@@ -1,5 +1,5 @@
 # CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses
-![identification process](https://github.com/user-attachments/assets/a8250375-e635-4bf3-a5eb-a5c666a005c7)
+![identification process](https://github.com/user-attachments/assets/17c8039a-89ea-46ac-8757-867dddc49afd)
 
 ## News
 
