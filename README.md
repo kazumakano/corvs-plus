@@ -1,4 +1,7 @@
-# CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses
+<div align="center">
+  <h1>CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses</h1>
+</div>
+
 <p align="center">
   Kazuma Kano · Yuki Mori · Shin Katayama · Kenta Urano · Takuro Yonezawa · Nobuo Kawaguchi <br>
   Graduate School of Engineering, Nagoya University
