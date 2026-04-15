@@ -5,7 +5,9 @@
 </p>
 
 <p align="center">
-  <img alt="dataset badge" src="https://img.shields.io/badge/Zenodo-dataset-2f6fa7?logo=zenodo&link=https%3A%2F%2Fdoi.org%2F10.5281%2Fzenodo.17745683">
+  <a href="https://doi.org/10.5281/zenodo.17745683">
+    <img alt="dataset badge" src="https://img.shields.io/badge/Zenodo-dataset-2f6fa7?logo=zenodo">
+  </a>
 </p>
 
 ![identification process](https://github.com/user-attachments/assets/17c8039a-89ea-46ac-8757-867dddc49afd)
