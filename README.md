@@ -54,8 +54,10 @@ python infer.py \
   --to '2024-10-03 12:00:00' \
   --devices 0
 ```
+
 <details>
   <summary>Command line arguments</summary>
+
   <p>
     <table>
       <thead>
