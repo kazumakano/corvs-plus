@@ -1,12 +1,21 @@
 # CorVS+: Correspondence-Driven Association of Video Trajectories and Sensors for Identity-Aware Person Localization in Warehouses
+<p align="center">
+  Kazuma Kano · Yuki Mori · Shin Katayama · Kenta Urano · Takuro Yonezawa · Nobuo Kawaguchi <br>
+  Graduate School of Engineering, Nagoya University
+</p>
+
+<p align="center">
+  <img alt="dataset badge" src="https://img.shields.io/badge/Zenodo-dataset-2f6fa7?logo=zenodo&link=https%3A%2F%2Fdoi.org%2F10.5281%2Fzenodo.17745683">
+</p>
+
 ![identification process](https://github.com/user-attachments/assets/17c8039a-89ea-46ac-8757-867dddc49afd)
 
-## News
+## 📢 News
 
-## Requirements
+## 📋 Requirements
 - Python 3.11
 
-## Installation
+## ⚡ Installation
 Install the `corvs` package and its dependencies.
 
 ```sh
@@ -14,12 +23,12 @@ git clone https://github.com/kazumakano/corvs-plus.git && cd corvs-plus/
 pip install -e ./
 ```
 
-## Dataset
+## 📦 Dataset
 Coming soon.
 
-![labeled trajectories](https://github.com/user-attachments/assets/6784a7a2-41c1-4475-b133-9b5a913e6431)
+![labeled video](https://github.com/user-attachments/assets/6784a7a2-41c1-4475-b133-9b5a913e6431)
 
-## Pre-trained models
+## 🧠 Pre-trained models
 Coming soon.
 
 | Ver | # of Params | FLOPs @ W=600 | Test PF | Weights | Hyperparams             | Note                |
@@ -28,7 +37,7 @@ Coming soon.
 
 [param 1]: https://onedrive.live.com/personal/5ba997f23749e33e/_layouts/15/download.aspx?UniqueId=814f01d0%2Df0c0%2D4be6%2D8155%2De2a5cfb9473b
 
-## Demo
+## 🚀 Demo
 Infer the correspondence probabilities and reliabilities for a specific pair of a trajectory and sensor measurements.
 
 ```sh
@@ -54,7 +63,9 @@ python infer.py \
 | `--to`                    | End datetime in Japan Standard Time   | str       |          |                             |
 | `--devices`               | Computation device indices            | list[int] |          | `[0]`                       |
 
-## Contact
+## 📜 Citation
+
+## 📬 Contact
 Kazuma Kano \
 Graduate School of Engineering, Nagoya University \
 Email: [kazuma@ucl.nuee.nagoya-u.ac.jp](mailto:kazuma@ucl.nuee.nagoya-u.ac.jp)
