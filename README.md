@@ -124,7 +124,7 @@ python infer.py \
           <td>Computation device indices</td>
           <td>list[int]</td>
           <td></td>
-          <td>[0]</td>
+          <td><code>[0]</code></td>
         </tr>
       </tbody>
     </table>
