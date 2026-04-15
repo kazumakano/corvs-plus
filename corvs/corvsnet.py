@@ -171,7 +171,7 @@ class CorVSNet(BaseModule):
     def mask_contract(mask: torch.BoolTensor, tgt_len: int) -> torch.BoolTensor:    # (batch, time) -> (batch, time)
         diff = mask.diff(prepend=torch.zeros(mask.shape[0], 1, dtype=torch.bool, device=mask.device))
         diff_cnt = diff.count_nonzero(dim=1)
-        if not (diff_cnt < 3).all().item():
+        if (diff_cnt > 2).any().item():
             raise ValueError("non-contiguous masks cannnot be contracted")
 
         time_idx = torch.arange(mask.shape[1], dtype=torch.int32, device=mask.device)  # (time, )
