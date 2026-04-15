@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://doi.org/10.5281/zenodo.17745683">
-    <img alt="dataset badge" src="https://img.shields.io/badge/Zenodo-dataset-2f6fa7?logo=zenodo">
+    <img alt="dataset badge" src="https://img.shields.io/badge/Zenodo-Dataset-2f6fa7?logo=zenodo">
   </a>
 </p>
 
@@ -54,17 +54,80 @@ python infer.py \
   --to '2024-10-03 12:00:00' \
   --devices 0
 ```
-
-| Argument                  | Description                           | Type      | Required | Default                     |
-| ------------------------- | ------------------------------------- | --------- | -------- | --------------------------- |
-| `-d` `--data_path`        | Path to dataset root directory        | str       |          | `dataset/`                  |
-| `-p` `--param_path`       | Path to hyperparameter file           | str       |          | `configs/hparams.yaml`      |
-| `-w` `--weight_path`      | Path to model weight file             | str       |          | `dataset/model.safetensors` |
-| `-t` `--traj_track_id`    | Track ID of trajectory                | int       | Yes      |                             |
-| `-s` `--sensor_worker_id` | Worker ID of sensor measurements      | int       | Yes      |                             |
-| `--from`                  | Start datetime in Japan Standard Time | str       |          |                             |
-| `--to`                    | End datetime in Japan Standard Time   | str       |          |                             |
-| `--devices`               | Computation device indices            | list[int] |          | `[0]`                       |
+<details>
+  <summary>Command line arguments</summary>
+  <p>
+    <table>
+      <thead>
+        <tr>
+          <th>Argument</th>
+          <th>Description</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>-d</code> <code>--data_path</code></td>
+          <td>Path to dataset root directory</td>
+          <td>str</td>
+          <td></td>
+          <td><code>dataset/</code></td>
+        </tr>
+        <tr>
+          <td><code>-p</code> <code>--param_path</code></td>
+          <td>Path to hyperparameter file</td>
+          <td>str</td>
+          <td></td>
+          <td><code>configs/hparams.yaml</code></td>
+        </tr>
+        <tr>
+          <td><code>-w</code> <code>--weight_path</code></td>
+          <td>Path to model weight file</td>
+          <td>str</td>
+          <td></td>
+          <td><code>dataset/model.safetensors</code></td>
+        </tr>
+        <tr>
+          <td><code>-t</code> <code>--traj_track_id</code></td>
+          <td>Track ID of trajectory</td>
+          <td>int</td>
+          <td>Yes</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><code>-s</code> <code>--sensor_worker_id</code></td>
+          <td>Worker ID of sensor measurements</td>
+          <td>int</td>
+          <td>Yes</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><code>--from</code></td>
+          <td>Start datetime in Japan Standard Time</td>
+          <td>str</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><code>--to</code></td>
+          <td>End datetime in Japan Standard Time</td>
+          <td>str</td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td><code>--devices</code></td>
+          <td>Computation device indices</td>
+          <td>list[int]</td>
+          <td></td>
+          <td>[0]</td>
+        </tr>
+      </tbody>
+    </table>
+  </p>
+</details>
 
 ## 📜 Citation
 
