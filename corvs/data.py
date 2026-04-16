@@ -429,17 +429,15 @@ class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
         self.end = None if end is None else utils.to_unix(end, utils.JST)
 
     def setup(self, stage: Literal["predict"]) -> None:
-        match stage:
-            case "predict":
-                if "pred" not in self.datasets:
-                    self.datasets["pred"] = CorVSPredDataset(
-                        self.root_path,
-                        self.track_id,
-                        self.worker_id,
-                        self.hparams["freq"],
-                        self.hparams["smooth"],
-                        self.hparams["win_len"],
-                        min_valid_len=self.hparams["min_in_len"],
-                        start=self.start,
-                        end=self.end
-                    )
+        if "pred" not in self.datasets:
+            self.datasets["pred"] = CorVSPredDataset(
+                self.root_path,
+                self.track_id,
+                self.worker_id,
+                self.hparams["freq"],
+                self.hparams["smooth"],
+                self.hparams["win_len"],
+                min_valid_len=self.hparams["min_in_len"],
+                start=self.start,
+                end=self.end
+            )
