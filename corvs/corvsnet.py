@@ -172,7 +172,7 @@ class CorVSNet(BaseModule):
         diff = mask.diff(prepend=torch.zeros(mask.shape[0], 1, dtype=torch.bool, device=mask.device))
         diff_cnt = diff.count_nonzero(dim=1)
         if (diff_cnt > 2).any().item():
-            raise ValueError("non-contiguous masks cannnot be contracted")
+            raise ValueError("non-contiguous masks are not supported")
 
         time_idx = torch.arange(mask.shape[1], dtype=torch.int32, device=mask.device)  # (time, )
         min_idx = torch.where(mask, time_idx, torch.inf).min(dim=1).values             # (batch, )
