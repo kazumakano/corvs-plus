@@ -299,19 +299,19 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 seed=self.seed
             )
 
-    def setup(self, stage: Literal["fit", "val", "test"]) -> None:
+    def setup(self, stage: Literal["fit", "validate", "test"]) -> None:
         """
         Load datasets from pt files.
         This method will be called in every process.
 
         Parameters
         ----------
-        stage : 'fit' | 'val' | 'test'
+        stage : 'fit' | 'validate' | 'test'
             Stage to setup.
         """
 
         match stage:
-            case "fit" | "val":
+            case "fit" | "validate":
                 if stage == "fit" and "train" not in self.datasets:
                     self.datasets["train"] = CorVSFitDataset.from_pt(self.pts_path / "train_data.pt")
                 if "val" not in self.datasets:
