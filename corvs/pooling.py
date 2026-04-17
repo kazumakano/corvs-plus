@@ -46,7 +46,7 @@ def masked_global_max_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTen
 
     return input.masked_fill(~valid_mask.unsqueeze(-2), -torch.inf).max(dim=-1).values
 
-def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor, temp: float | nn.Parameter = 1) -> torch.FloatTensor:
+def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTensor, temp: float | torch.FloatTensor = 1) -> torch.FloatTensor:
     """
     Apply masked global soft pooling along temporal dimension.
 
@@ -59,7 +59,7 @@ def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTe
         Mask of valid times.
         True for valid and False for invalid.
         Shape is (..., time).
-    temp : float | Parameter
+    temp : float | FloatTensor
         Temperature parameter.
         Standard if 1.
 
