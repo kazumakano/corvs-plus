@@ -60,7 +60,7 @@ class SeparableConv1d(nn.Module):
             in_channels: int,
             out_channels: int,
             kernel_size: int | tuple[int],
-            filter_num: int = 1,
+            expansion: int = 1,
             stride: int | tuple[int] = 1,
             padding: int | tuple[int] | Literal["valid", "same"] = 0,
             dilation: int | tuple[int] = 1,
@@ -75,7 +75,7 @@ class SeparableConv1d(nn.Module):
 
         self.d = nn.Conv1d(
             in_channels,
-            filter_num * in_channels,
+            expansion * in_channels,
             kernel_size,
             stride=stride,
             padding=padding,
@@ -87,7 +87,7 @@ class SeparableConv1d(nn.Module):
             dtype=dtype
         )
         self.p = nn.Conv1d(
-            filter_num * in_channels,
+            expansion * in_channels,
             out_channels,
             1,
             groups=groups,
@@ -118,12 +118,12 @@ class SeparableConv1d(nn.Module):
         return self.d.dilation
 
 class SeparableDualCNN(DualCNN):
-    def __init__(self, in_ch: int, out_ch: int, ks_s: int, fn: int = 1, act: nn.Module | Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
+    def __init__(self, in_ch: int, out_ch: int, ks_s: int, ex: int = 1, act: nn.Module | Callable[[torch.FloatTensor], torch.FloatTensor] = F.silu) -> None:
         super().__init__(in_ch, out_ch, ks_s, act)
 
         half_out_ch = out_ch // 2
 
-        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
-        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, fn, bias=False)
-        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
-        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, fn, bias=False)
+        self.conv_2_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, ex, bias=False)
+        self.conv_3_s = SeparableConv1d(half_out_ch, half_out_ch, ks_s, ex, bias=False)
+        self.conv_2_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, ex, bias=False)
+        self.conv_3_l = SeparableConv1d(half_out_ch, half_out_ch, 2 * ks_s - 1, ex, bias=False)

@@ -13,7 +13,7 @@ neg_ratio: 1024
 arch: corvsnet
 cnn_sep: false
 cnn_ks_s: 5
-cnn_fn: null
+cnn_ex: null
 cnn_act: silu
 cls_tok: false
 xfmr_pos_enc: rope
