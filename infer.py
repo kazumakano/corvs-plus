@@ -1,6 +1,6 @@
+import pathlib
 from datetime import datetime
 from os import PathLike
-from pathlib import Path
 from typing import Optional
 import torch
 from lightning import pytorch as L
@@ -39,7 +39,7 @@ def infer(
     trainer = L.Trainer(devices=devices, logger=False)
 
     datamodule = CorVSPredDataModule(data_path, traj_track_id, sensor_worker_id, hparams, start, end)
-    match Path(weight_path).suffix:
+    match pathlib.Path(weight_path).suffix:
         case ".ckpt":
             model = CorVSNetPredictor.load_from_checkpoint(weight_path, CorVSPredDataset, torch.device(trainer.device_ids[0]), param_path)
         case ".safetensors":

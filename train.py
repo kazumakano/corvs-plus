@@ -1,6 +1,6 @@
+import pathlib
 from datetime import datetime
 from os import PathLike
-from pathlib import Path
 from typing import Optional
 import torch
 from lightning import pytorch as L
@@ -37,7 +37,7 @@ def train(
         cbs.append(callbacks.EarlyStopping("val_loss", patience=hparams["patience"]))
     trainer = L.Trainer(
         devices=devices,
-        logger=loggers.TensorBoardLogger(Path(__file__).parent / "runs/", name=exp_name),
+        logger=loggers.TensorBoardLogger(pathlib.Path(__file__).parent / "runs/", name=exp_name),
         callbacks=cbs,
         max_steps=hparams["max_step"],
         val_check_interval=hparams["val_step"],

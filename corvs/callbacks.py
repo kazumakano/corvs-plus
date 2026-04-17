@@ -1,6 +1,6 @@
 import math
+import pathlib
 import traceback
-from pathlib import Path
 from typing import Any, Literal, overload
 from lightning import pytorch as L
 from omegaconf import DictConfig, OmegaConf
@@ -25,7 +25,7 @@ class ArgsWriter(L.Callback):
             raise TypeError("arguments must be passed as one dictionary or keyword arguments")
 
     def setup(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
-        log_path = Path(trainer.log_dir)
+        log_path = pathlib.Path(trainer.log_dir)
         if trainer.is_global_zero:
             log_path.mkdir(parents=True, exist_ok=True)
             OmegaConf.save(self.args, log_path / "args.yaml")
@@ -51,20 +51,20 @@ class BestMetricsWriter(L.Callback):
             trainer.logger.log_metrics({"hp_metric": self.best_mets[self.monitor]}, step=trainer.global_step)
 
     def teardown(self, trainer: L.Trainer, _: L.LightningModule, stage: Literal["fit", "validate", "test", "predict"]) -> None:
-        log_path = Path(trainer.log_dir)
+        log_path = pathlib.Path(trainer.log_dir)
         if trainer.is_global_zero:
             log_path.mkdir(parents=True, exist_ok=True)
             OmegaConf.save(self.best_mets, log_path / "metrics.yaml")
 
     def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
-        log_path = Path(trainer.log_dir)
+        log_path = pathlib.Path(trainer.log_dir)
         if trainer.is_global_zero:
             log_path.mkdir(parents=True, exist_ok=True)
             OmegaConf.save(self.best_mets, log_path / "metrics.yaml")
 
 class ErrWriter(L.Callback):
     def on_exception(self, trainer: L.Trainer, _: L.LightningModule, __: BaseException) -> None:
-        log_path = Path(trainer.log_dir)
+        log_path = pathlib.Path(trainer.log_dir)
         if trainer.is_global_zero:
             log_path.mkdir(parents=True, exist_ok=True)
             utils.save_txt(traceback.format_exc(), log_path / "error.txt")
