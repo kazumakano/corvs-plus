@@ -74,12 +74,12 @@ def masked_global_soft_pool1d(input: torch.FloatTensor, valid_mask: torch.BoolTe
 
 class MaskedGlobalAttnPool1d(nn.Module):
     def __init__(self, d_model: int, nhead: int) -> None:
-        if d_model % nhead != 0:
+        super().__init__()
+        self.nhead = nhead
+
+        if d_model % self.nhead != 0:
             raise ValueError("dimension must be divisible by number of heads")
 
-        super().__init__()
-
-        self.nhead = nhead
         self.proj = nn.Linear(d_model, self.nhead)
 
     def forward(self, input: torch.FloatTensor, valid_mask: torch.BoolTensor) -> torch.FloatTensor:  # (..., dim, seq), (..., seq) -> (..., dim)

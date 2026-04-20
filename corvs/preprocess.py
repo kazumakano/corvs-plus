@@ -103,4 +103,5 @@ def pad(seqs: torch.Tensor | list[torch.Tensor], tgt_len: int, batch_first: bool
         case _:
             raise ValueError(f"padding side must be 'left' or 'right', but got '{pad_side}'")
     seqs = F.pad(seqs, pad, value=pad_val)
+
     return seqs
