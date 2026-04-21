@@ -16,7 +16,7 @@ from torch.types import Device, FileLike
 from torch.utils import data
 from torchtune import training
 from corvs import utils
-from corvs.loss import FocalWithLogitsLoss
+from corvs.loss import BCEWithLogitsLoss, FocalWithLogitsLoss
 
 
 class Modality(enum.Enum):
@@ -177,15 +177,15 @@ class BaseFitModule(BaseModule):
         if stage == "fit":
             match self.hparams["loss"]:
                 case "bce":
-                    if self.hparams["balance"] == "loss":
-                        self.train_crit = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32))
-                    else:
-                        self.train_crit = nn.BCEWithLogitsLoss()
+                    self.train_crit = BCEWithLogitsLoss(
+                        pos_weight=torch.tensor(self.trainer.datamodule.datasets["train"].neg_ratio, dtype=torch.float32) if self.hparams["balance"] == "loss" else None,
+                        label_smoothing=self.hparams["label_smooth"]
+                    )
                 case "focal":
                     self.train_crit = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
-            self.val_crit = nn.BCEWithLogitsLoss()
+            self.val_crit = BCEWithLogitsLoss(label_smoothing=self.hparams["label_smooth"])
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         if self.hparams["sched"] != "warm_cos" and self.hparams["warm_step"] is not None:

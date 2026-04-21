@@ -79,7 +79,7 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
             root_path: str | PathLike[str],
             track_ids: Collection[int],
             freq_in_hz: float,
-            smooth_in_sec: float,
+            denoise_in_sec: float,
             win_len: int,
             win_st: int = 1,
             min_valid_len: int = 0,
@@ -106,15 +106,15 @@ class CorVSFitDataset(CorVSDataset, BaseFitDataset):
 
             if min_valid_len / freq_in_hz < (len(sensor_data) - 1) / SENSOR_FREQ:
                 meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
-                meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
+                meas = ndimage.gaussian_filter1d(meas, denoise_in_sec * SENSOR_FREQ, axis=0)
 
                 for _, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
                     traj_time = np.arange(td["time"].iat[0], td["time"].iat[-1], step=1 / TRAJ_FREQ, dtype=np.float64)
 
                     if min_valid_len / freq_in_hz < (len(traj_time) - 3) / TRAJ_FREQ:
                         loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
-                        spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                        turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                        spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), denoise_in_sec * TRAJ_FREQ)
+                        turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), denoise_in_sec * TRAJ_FREQ)
 
                         synced_spd, synced_turn_rate, synced_meas = preproc.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, freq_in_hz)[1:]
                         self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
@@ -257,7 +257,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 self.root_path,
                 self.track_ids["train"],
                 self.hparams["freq"],
-                self.hparams["smooth"],
+                self.hparams["denoise"],
                 self.hparams["win_len"],
                 self.hparams["win_st"],
                 self.hparams["min_in_len"],
@@ -276,7 +276,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 self.root_path,
                 self.track_ids["val"],
                 self.hparams["freq"],
-                self.hparams["smooth"],
+                self.hparams["denoise"],
                 self.hparams["win_len"],
                 min_valid_len=self.hparams["min_in_len"],
                 start=self.start,
@@ -290,7 +290,7 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 self.root_path,
                 self.track_ids["test"],
                 self.hparams["freq"],
-                self.hparams["smooth"],
+                self.hparams["denoise"],
                 self.hparams["win_len"],
                 min_valid_len=self.hparams["min_in_len"],
                 start=self.start,
@@ -335,7 +335,7 @@ class CorVSPredDataset(CorVSDataset):
             traj_track_id: int,
             sensor_worker_id: int,
             freq_in_hz: float,
-            smooth_in_sec: float,
+            denoise_in_sec: float,
             win_len: int,
             win_st: int = 1,
             min_valid_len: int = 0,
@@ -357,7 +357,7 @@ class CorVSPredDataset(CorVSDataset):
         max_win_num = 0
         if min_valid_len / self.freq < (len(sensor_data) - 1) / SENSOR_FREQ:
             meas = np.column_stack((linalg.norm(sensor_data[["linacc_x", "linacc_y", "linacc_z"]], axis=1), sensor_data[["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z"]]))
-            meas = ndimage.gaussian_filter1d(meas, smooth_in_sec * SENSOR_FREQ, axis=0)
+            meas = ndimage.gaussian_filter1d(meas, denoise_in_sec * SENSOR_FREQ, axis=0)
 
             i = 0
             for _, td in preproc.seg_by_timeout(traj_data, TRAJ_TIMEOUT):
@@ -365,8 +365,8 @@ class CorVSPredDataset(CorVSDataset):
 
                 if min_valid_len / self.freq < (len(traj_time) - 3) / TRAJ_FREQ:
                     loc = interp1d(td["time"], td[["x", "y"]], axis=0, copy=False, fill_value="extrapolate", assume_sorted=True)(traj_time)
-                    spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), smooth_in_sec * TRAJ_FREQ)
-                    turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), smooth_in_sec * TRAJ_FREQ)
+                    spd = ndimage.gaussian_filter1d(preproc.loc_to_spd(loc, TRAJ_FREQ, TRAJ_RESOL), denoise_in_sec * TRAJ_FREQ)
+                    turn_rate = ndimage.gaussian_filter1d(preproc.loc_to_turn_rate(loc, TRAJ_FREQ), denoise_in_sec * TRAJ_FREQ)
 
                     synced_time, synced_spd, synced_turn_rate, synced_meas = preproc.sync(traj_time[:-1] + 0.5 / TRAJ_FREQ, spd, traj_time[1:-1], turn_rate, sensor_data["time"], meas, self.freq)
                     self.traj_feat.append(torch.from_numpy(np.column_stack((synced_spd.astype(np.float32), synced_turn_rate.astype(np.float32)))))
@@ -435,7 +435,7 @@ class CorVSPredDataModule(BasePredDataModule[CorVSPredDataset]):
                 self.track_id,
                 self.worker_id,
                 self.hparams["freq"],
-                self.hparams["smooth"],
+                self.hparams["denoise"],
                 self.hparams["win_len"],
                 min_valid_len=self.hparams["min_in_len"],
                 start=self.start,

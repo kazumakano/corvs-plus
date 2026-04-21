@@ -1,6 +1,6 @@
 # data
 freq: 10
-smooth: 0.2
+denoise: 0.2
 win_len: 600
 win_st: 10
 min_in_len: 21
@@ -30,6 +30,7 @@ mlp_act: gelu
 
 # training
 loss: bce
+label_smooth: 0
 opt: adamw
 sched: warm_cos
 lr: 0.0001
