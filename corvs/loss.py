@@ -6,6 +6,11 @@ from torchvision import ops
 
 
 class BCEWithLogitsLoss(nn.BCEWithLogitsLoss):
+    """
+    Modified from `torch.nn.BCEWithLogitsLoss`.
+    This class supports label smoothing.
+    """
+
     def __init__(self, weight: Optional[torch.Tensor] = None, reduction: Literal["mean", "sum", "none"] = "mean", pos_weight: Optional[torch.Tensor] = None, label_smoothing: float = 0) -> None:
         super().__init__(weight=weight, reduction=reduction, pos_weight=pos_weight)
         self.label_smoothing = label_smoothing
