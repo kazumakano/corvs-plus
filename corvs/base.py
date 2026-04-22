@@ -182,7 +182,7 @@ class BaseFitModule(BaseModule):
                     )
                 case "focal":
                     if self.hparams["label_smooth"] is not None:
-                        warnings.warn("parameter 'label_smooth' is ignored when using focal loss")
+                        warnings.warn(UserWarning("parameter 'label_smooth' is ignored when using focal loss"))
                     self.train_crit = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")

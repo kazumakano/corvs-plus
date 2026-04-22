@@ -49,7 +49,7 @@ class CorVSNet(BaseModule):
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
         cnn_act = str_to_mod(self.hparams["cnn_act"], True)
         if self.hparams["cnn_sep"]:
-            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_fn"], cnn_act)
+            self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_ex"], cnn_act)
         else:
             self.cnn = DualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], cnn_act)
 
@@ -186,13 +186,6 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
         super().__init__(hparams, ds_cls)
         self.reset_parameters()
 
-        self.example_input_array = (
-            torch.empty(1, self.hparams["win_len"], len(self.traj_mets), dtype=torch.float32),
-            torch.empty(1, self.hparams["win_len"], len(self.sensor_mets), dtype=torch.float32),
-            torch.ones(1, self.hparams["win_len"], dtype=torch.bool),
-            torch.ones(1, self.hparams["win_len"], dtype=torch.bool)
-        )
-
     def reset_parameters(self) -> None:
         for m in self.modules():
             if isinstance(m, (nn.BatchNorm1d, nn.LayerNorm, nn.RMSNorm)):
@@ -215,6 +208,15 @@ class CorVSNetFitter(CorVSNet, BaseFitModule):
             init.xavier_uniform_(self.cls_tok)
         if self.hparams["xfmr_pos_enc"] == "learnable":
             init.xavier_uniform_(self.pos_emb)
+
+    @property
+    def example_input_array(self) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.BoolTensor, torch.BoolTensor]:
+        return (
+            torch.empty(1, self.hparams["win_len"], len(self.traj_mets), dtype=self.dtype),
+            torch.empty(1, self.hparams["win_len"], len(self.sensor_mets), dtype=self.dtype),
+            torch.ones(1, self.hparams["win_len"], dtype=torch.bool),
+            torch.ones(1, self.hparams["win_len"], dtype=torch.bool)
+        )
 
     def training_step(self, batch: list[torch.FloatTensor | torch.BoolTensor], _: int) -> torch.FloatTensor:
         traj_feat = batch[self.modalities.index(Modality.TRAJ_FEAT)]
