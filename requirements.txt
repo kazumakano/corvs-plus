@@ -94,7 +94,7 @@ lightning-utilities==0.15.3
     #   torchmetrics
 llvmlite==0.47.0
     # via numba
-lxml==6.0.2
+lxml==6.1.0
     # via blobfile
 markdown==3.10.2
     # via tensorboard
