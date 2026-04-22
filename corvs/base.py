@@ -10,7 +10,6 @@ from lightning import pytorch as L
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
 from safetensors import torch as safetensors
-from torch import nn
 from torch.optim import Optimizer
 from torch.types import Device, FileLike
 from torch.utils import data
@@ -185,7 +184,8 @@ class BaseFitModule(BaseModule):
                     self.train_crit = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
-            self.val_crit = BCEWithLogitsLoss(label_smoothing=self.hparams["label_smooth"])
+        if stage in ("fit", "validate"):
+            self.val_crit = BCEWithLogitsLoss()
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         if self.hparams["sched"] != "warm_cos" and self.hparams["warm_step"] is not None:
