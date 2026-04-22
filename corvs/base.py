@@ -181,14 +181,18 @@ class BaseFitModule(BaseModule):
                         label_smoothing=self.hparams["label_smooth"]
                     )
                 case "focal":
+                    if self.hparams["label_smooth"] is not None:
+                        warnings.warn(UserWarning("parameter 'label_smooth' is ignored when using focal loss"))
                     self.train_crit = FocalWithLogitsLoss()
                 case _:
                     raise ValueError(f"unknown loss function {self.hparams['loss']} was specified")
+
+        if stage in ("fit", "validate"):
             self.val_crit = BCEWithLogitsLoss()
 
     def configure_optimizers(self) -> Optimizer | OptimizerLRSchedulerConfig:
         if self.hparams["sched"] != "warm_cos" and self.hparams["warm_step"] is not None:
-            warnings.warn(UserWarning("parameter 'warm_step' is ignored when not using warm up scheduler"))
+            warnings.warn(UserWarning("parameter 'warm_step' is ignored when not using warmup scheduler"))
 
         match self.hparams["opt"]:
             case "sgd":
@@ -226,24 +230,20 @@ class BaseFitModule(BaseModule):
 
     def on_train_epoch_start(self) -> None:
         if self.hparams["sched"] == "free":
-            self.optimizers().optimizer.train()
+            self.optimizers().train()
 
     def on_validation_epoch_start(self) -> None:
-        if self.hparams["sched"] == "free":
-            self.optimizers().optimizer.eval()
+        if self.hparams["sched"] == "free" and self.optimizers() != []:
+            self.optimizers().eval()
 
     def on_test_start(self) -> None:
-        if self.hparams["sched"] == "free":
-            self.optimizers().optimizer.eval()
+        if self.hparams["sched"] == "free" and self.optimizers() != []:
+            self.optimizers().eval()
 
     def to_safetensors(self, path: str | PathLike[str], metadata: Optional[dict[str, str]] = None) -> None:
         safetensors.save_model(self, path, metadata=metadata)
 
 class BasePredModule(BaseModule):
-    def on_predict_start(self) -> None:
-        if self.hparams["sched"] == "free":
-            self.optimizers().optimizer.eval()
-
     @classmethod
     def load_from_safetensors(cls, path: str | PathLike[str], hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset], device: Device = None, **kwargs: Any) -> Self:
         self = cls(hparams=hparams, ds_cls=ds_cls, **kwargs)
