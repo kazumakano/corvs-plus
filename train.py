@@ -50,8 +50,6 @@ def train(
 
     trainer.fit(model, datamodule=datamodule)
 
-    datamodule.save_split()
-
 if __name__ == "__main__":
     import argparse
 

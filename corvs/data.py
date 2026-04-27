@@ -320,6 +320,8 @@ class CorVSFitDataModule(BaseFitDataModule[CorVSFitDataset]):
                 if "test" not in self.datasets:
                     self.datasets["test"] = CorVSFitDataset.from_pt(self.pts_path / "test_data.pt")
 
+        self.save_split()
+
     def save_split(self) -> None:
         log_path = pathlib.Path(self.trainer.log_dir)
         if self.trainer.is_global_zero and self.track_ids is not None:
