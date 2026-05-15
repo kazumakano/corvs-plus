@@ -58,12 +58,12 @@ class CorVSNet(BaseModule):
 
         xfmr_time_len = self.hparams["win_len"] - self.cnn.recept_field + 1
         if self.hparams["cls_tok"]:
-            self.cls_tok = nn.Parameter(data=torch.empty(1, 1, self.hparams["xfmr_d_model"], dtype=torch.float32))
+            self.cls_tok = nn.Parameter(data=torch.empty(self.hparams["xfmr_d_model"], dtype=torch.float32))
             xfmr_time_len += 1
 
         match self.hparams["xfmr_pos_enc"]:
             case "sinusoidal":
-                self.register_buffer("pos_emb", create_sin_pos_emb(xfmr_time_len, self.hparams["xfmr_d_model"]).unsqueeze(1), persistent=False)
+                self.register_buffer("pos_emb", create_sin_pos_emb(xfmr_time_len, self.hparams["xfmr_d_model"]), persistent=False)
                 xfmr_layer = TransformerEncoderLayer(
                     self.hparams["xfmr_d_model"],
                     self.hparams["xfmr_nhead"],
@@ -74,7 +74,7 @@ class CorVSNet(BaseModule):
                     norm_first=True
                 )
             case "learnable":
-                self.pos_emb = nn.Parameter(data=torch.empty(xfmr_time_len, 1, self.hparams["xfmr_d_model"], dtype=torch.float32))
+                self.pos_emb = nn.Parameter(data=torch.empty(xfmr_time_len, self.hparams["xfmr_d_model"], dtype=torch.float32))
                 xfmr_layer = TransformerEncoderLayer(
                     self.hparams["xfmr_d_model"],
                     self.hparams["xfmr_nhead"],
@@ -135,10 +135,10 @@ class CorVSNet(BaseModule):
 
         hidden = einops.rearrange(hidden, "b d t -> t b d")
         if self.hparams["cls_tok"]:
-            cls_tok = einops.repeat(self.cls_tok, "1 1 d -> 1 b d", b=hidden.shape[1])
+            cls_tok = einops.repeat(self.cls_tok, "d -> 1 b d", b=hidden.shape[1])
             hidden = torch.cat((cls_tok, hidden))
         if self.hparams["xfmr_pos_enc"] in ("sinusoidal", "learnable"):
-            pos_emb = einops.repeat(self.pos_emb, "t 1 d -> t b d", b=hidden.shape[1])
+            pos_emb = einops.repeat(self.pos_emb, "t d -> t b d", b=hidden.shape[1])
             hidden += pos_emb
 
         valid_mask = valid_mask[:, -hidden.shape[0]:]

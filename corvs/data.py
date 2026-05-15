@@ -12,6 +12,7 @@ from omegaconf import DictConfig, OmegaConf
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from torch.types import FileLike
+from tqdm import TqdmExperimentalWarning
 from tqdm import rich as tqdm
 from corvs import preprocess as preproc
 from corvs import utils
@@ -74,6 +75,7 @@ class CorVSDataset(BaseDataset):
 class CorVSFitDataset(CorVSDataset, BaseFitDataset):
     modalities = Modality.TRAJ_FEAT, Modality.SENSOR_FEAT, Modality.VALID_MASK, Modality.VISIBLE_MASK, Modality.LABEL
 
+    @utils.ignore_warn(TqdmExperimentalWarning)
     def __init__(
             self,
             root_path: str | PathLike[str],

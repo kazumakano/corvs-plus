@@ -1,8 +1,10 @@
+import functools
 import importlib
+import warnings
 import zoneinfo
 from datetime import datetime, tzinfo
 from os import PathLike
-from typing import Any, Literal, Optional
+from typing import Any, Callable, Iterable, Literal, Optional, ParamSpec, TypeVar
 import torch
 from dateutil import parser
 
@@ -16,6 +18,23 @@ def to_unix(dt: float | str | datetime, tzinfo: Optional[tzinfo] = None) -> floa
             dt = dt.replace(tzinfo=tzinfo)
         dt = dt.timestamp()
     return dt
+
+ArgsP = ParamSpec("ArgsP")
+RetT = TypeVar("RetT")
+
+def ignore_warn(cat: type[Warning] | Iterable[type[Warning]] = Warning) -> Callable[[Callable[ArgsP, RetT]], Callable[ArgsP, RetT]]:
+    def decorator(func: Callable[ArgsP, RetT]) -> Callable[ArgsP, RetT]:
+        @functools.wraps(func)
+        def wrapper(*args: ArgsP.args, **kwargs: ArgsP.kwargs) -> RetT:
+            with warnings.catch_warnings():
+                if isinstance(cat, type):
+                    warnings.simplefilter("ignore", category=cat)
+                else:
+                    for c in cat:
+                        warnings.simplefilter("ignore", category=c)
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def get_min_int_dtype(val: int) -> torch.dtype:
     if val < 2 ** 7:
