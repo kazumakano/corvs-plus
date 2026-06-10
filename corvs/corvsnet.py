@@ -1,12 +1,12 @@
-import warnings
 from argparse import Namespace
-from typing import Any, Callable, Literal, Optional, overload
+from typing import Any, Optional
 import einops
 import torch
 from omegaconf import DictConfig
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import init
+from corvs.activation import get_act
 from corvs.base import BaseDataset, BaseFitDataset, BaseFitModule, BaseModule, BasePredModule, Modality, SensorMet, TrajMet
 from corvs.cnn import DualCNN, SeparableDualCNN
 from corvs.embedding import create_sin_pos_emb
@@ -14,30 +14,6 @@ from corvs.normalization import MaskedBatchNorm1d
 from corvs.pooling import MaskedGlobalAttnPool1d, masked_global_avg_pool1d, masked_global_max_pool1d, masked_global_soft_pool1d
 from corvs.transformer import RoFormerEncoderLayer, TransformerEncoderLayer
 
-
-@overload
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[False] = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU:
-    ...
-
-@overload
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: Literal[True]) -> Callable[[torch.FloatTensor], torch.FloatTensor]:
-    ...
-
-def str_to_mod(act: Literal["relu", "leaky_relu", "gelu", "silu"], func: bool = False, **kwargs: Any) -> nn.ReLU | nn.LeakyReLU | nn.GELU | nn.SiLU | Callable[[torch.FloatTensor], torch.FloatTensor]:
-    if func and len(kwargs) > 0:
-        warnings.warn(UserWarning("keyword arguments are ignored when functional"))
-
-    match act:
-        case "relu":
-            return F.relu if func else nn.ReLU(**kwargs)
-        case "leaky_relu":
-            return F.leaky_relu if func else nn.LeakyReLU(**kwargs)
-        case "gelu":
-            return F.gelu if func else nn.GELU(**kwargs)
-        case "silu":
-            return F.silu if func else nn.SiLU(**kwargs)
-        case _:
-            raise ValueError(f"unknown activation function {act} was specified")
 
 class CorVSNet(BaseModule):
     def __init__(self, hparams: dict[str, Any] | Namespace | DictConfig, ds_cls: type[BaseDataset]) -> None:
@@ -47,7 +23,7 @@ class CorVSNet(BaseModule):
             raise ValueError("time aggregation with CLS token needs to enable CLS token")
 
         self.bn = MaskedBatchNorm1d(len(self.in_mets), affine=False)
-        cnn_act = str_to_mod(self.hparams["cnn_act"], True)
+        cnn_act = get_act(self.hparams["cnn_act"], True)
         if self.hparams["cnn_sep"]:
             self.cnn = SeparableDualCNN(len(self.in_mets), self.hparams["xfmr_d_model"], self.hparams["cnn_ks_s"], self.hparams["cnn_ex"], cnn_act)
         else:
@@ -113,7 +89,7 @@ class CorVSNet(BaseModule):
 
         self.mlp = nn.Sequential(
             nn.Linear(self.hparams["xfmr_d_model"], self.hparams["xfmr_d_model"] // 4),
-            str_to_mod(self.hparams["mlp_act"]),
+            get_act(self.hparams["mlp_act"]),
             nn.Dropout(p=self.hparams["mlp_dr"]),
             nn.Linear(self.hparams["xfmr_d_model"] // 4, 1)
         )
