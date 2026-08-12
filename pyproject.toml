@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling >= 1.31"]
+build-backend = "hatchling.build"
+
+[project]
+name = "corvs"
+version = "0.1.0"
+description = "PyTorch implementation of CorVS+"
+readme = "README.md"
+authors = [
+    {name = "Kazuma Kano", email = "kazuma@ucl.nuee.nagoya-u.ac.jp"}
+]
+license-files = ["LICENSE"]
+
+requires-python = ">=3.11, <3.14"  # via torchao
+dependencies = [
+    "annotated-types>=0.8.0",
+    "einops>=0.8.2",
+    "lightning>=2.6.5",
+    "numba>=0.66.0",
+    "numpy>=2.4.6",
+    "omegaconf>=2.3.1",
+    "pandas>=3.0.5",
+    "pydantic>=2.13.4",
+    "python-dateutil>=2.9.0.post0",
+    "pytorch-optimizer>=3.10.1",
+    "rich>=15.0.0",
+    "safetensors>=0.8.0",
+    "scipy>=1.17.1",
+    "torch==2.9.1",         # via torchao
+    "torchao==0.15.0",      # via torchtune
+    "torchmetrics>=1.9.0",
+    "torchtune>=0.6.1",
+    "torchvision==0.24.1",  # via torch
+    "typing-extensions>=4.16.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "ipywidgets>=8.1.8",
+    "matplotlib>=3.11.1",
+]
+
+[tool.uv]
+constraint-dependencies = [
+    "datasets>=2.14.5",  # via torchtune
+]
+
+[project.urls]
+Paper = "https://doi.org/10.48550/arXiv.2510.26369"
+Data = "https://doi.org/10.5281/zenodo.17745683"
+Code = "https://github.com/kazumakano/corvs-plus"

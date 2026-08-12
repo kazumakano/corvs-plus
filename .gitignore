@@ -1,0 +1,13 @@
+.venv/
+.vscode/
+
+/configs/*
+!/configs/hparams.yaml
+!/configs/split.yaml
+
+__pycache__/
+
+/data/
+/models/
+
+*.ipynb
